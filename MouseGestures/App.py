@@ -10,11 +10,13 @@ from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.spinner import Spinner
-from kivy.graphics import Color, Line
+from kivy.graphics import Color, Line, Ellipse
 
 
 import tensorflow as tf
 import numpy as np
+
+maxLen = 60
 
 class Gesture:
 	def __init__(self):
@@ -26,24 +28,46 @@ class Gesture:
 			self.points.append((input[i] - input[i-2], input[i+1]-input[i-1]))
 			
 	def to_dict(self):
-		return {"class" : self.classId, "points" : self.points}
+		dict = {
+			"classId" : self.classId,
+			"points" : self.points
+		}
+		return dict
+		
+	def from_dict(dict):
+		g = Gesture()
+		g.classId = dict["classId"]
+		g.points = dict["points"]
+		return g
 		
 	def to_tensor(self):
-		return self.points[:100] + [self.points[-1]]*(100 - len(self.points))
+		return self.points[:maxLen] + [self.points[-1]]*(maxLen - len(self.points))
 		
 
 class GestureBase:
-	gestures = []
-	gestureIds = {'None': 0}
+	def __init__(self):
+		self.gestures = []
+		self.gestureIds = {'None': 0}
 	
 	def save(self, path):
 		print("Gestures %d" % len(self.gestures))
 		with open(path, 'w') as file:
-			json.dump([g.to_dict() for g in self.gestures], file, indent=2)
-		
+			data = {
+				"classes": self.gestureIds,
+				"gestures": [g.to_dict() for g in self.gestures], 
+			}
+			json.dump(data, file, indent=2)
+			
 	def load(self, path):
-		pass
-		
+		with open(path, 'r') as file:
+			data = json.load(file)
+			self.gestureIds = data["classes"]
+			self.gestures = [Gesture.from_dict(g) for g in data["gestures"]]
+	
+	def get_classes_in_order(self):
+		items = sorted(self.gestureIds.items(), key=lambda p: p[1])
+		return [i[0] for i in items]
+	
 	def add_gesture(self, className, points):
 		gesture = Gesture()
 		if className not in self.gestureIds:
@@ -55,7 +79,7 @@ class GestureBase:
 		self.gestures.append(gesture)
 		
 	def to_tensor(self):
-		return [g.to_tensor() for g in self.gestures]
+		return np.array([g.to_tensor() for g in self.gestures])
 		
 	def classes_to_tensor(self):
 		ret = []
@@ -63,22 +87,22 @@ class GestureBase:
 			list = [0] * 10
 			list[g.classId] = 1
 			ret.append(list)
-		return ret
+		return np.array(ret)
 		
 	def lengths_to_tensor(self):
-		#return [len(g.points) for g in self.gestures]
-		return [100 for g in self.gestures]
+		ret = [len(g.points) for g in self.gestures]
+		return np.array(ret)
+		#return [100 for g in self.gestures]
 		
 class GestureRecognizer:
 	
 	numberOfExamples = None #dynamic
-	maxGestureLength = 100
 	sampleVectorLen = 2 # x, y coords
 	numMemCells = 24
 	
 	
 	def __init__(self):
-		self.inputData = tf.placeholder(tf.float32, [None, self.maxGestureLength, self.sampleVectorLen])
+		self.inputData = tf.placeholder(tf.float32, [None, maxLen, self.sampleVectorLen])
 		self.expectedClasses = tf.placeholder(tf.float32, [None, 10])
 		self.inputLengths = tf.placeholder(tf.int32, [None])
 		print("########################")
@@ -91,7 +115,7 @@ class GestureRecognizer:
 		#last = cellState[1]
 		#cellOut = tf.transpose(cellOut, [1, 0, 2])
 		batchSize = tf.shape(cellOut)[0]
-		index = tf.range(0, batchSize) * self.maxGestureLength + (self.inputLengths - 1)
+		index = tf.range(0, batchSize) * maxLen + (self.inputLengths - 1)
 		flat = tf.reshape(cellOut, [-1, self.numMemCells])
 		last = tf.gather(flat, index)
 		print(last.get_shape())
@@ -99,9 +123,11 @@ class GestureRecognizer:
 		
 		weight = tf.Variable(tf.truncated_normal([self.numMemCells, int(self.expectedClasses.get_shape()[1])], stddev = 0.1))
 		bias = tf.Variable(tf.constant(0.1, shape=[self.expectedClasses.get_shape()[1]]))
-		prediction = tf.nn.softmax(tf.matmul(last, weight) + bias)
+		#prediction = tf.nn.softmax(tf.matmul(last, weight) + bias)
+		prediction = tf.matmul(last, weight) + bias
 		
-		cross_entropy = -tf.reduce_sum(self.expectedClasses * tf.log(tf.clip_by_value(prediction,1e-10,1.0)))
+		cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(prediction, self.expectedClasses))
+		#cross_entropy = -tf.reduce_sum(self.expectedClasses * tf.log(tf.clip_by_value(prediction,1e-10,1.0)))
 		optimizer = tf.train.GradientDescentOptimizer(0.1)
 		self.trainer = optimizer.minimize(cross_entropy)
 		
@@ -109,7 +135,7 @@ class GestureRecognizer:
 		self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 		
 		self.predictionMax = tf.argmax(prediction, 1)
-		self.classifier = prediction
+		self.classifier = tf.nn.softmax(prediction)
 		
 		self.sess = tf.Session()
 		init_op = tf.global_variables_initializer()
@@ -138,51 +164,17 @@ class GestureRecognizer:
 		
 		feed = {self.inputData: [gesture.to_tensor()],
 			self.inputLengths: [len(gesture.points)]}
-		res, probs = self.sess.run([self.classifier, self.predictionMax], feed)
+		index, prob = self.sess.run([self.predictionMax, self.classifier], feed)
 		
-		print(res)
-		print(probs)
-
-class Controller:
-	base = GestureBase()
-	className = 'None'
-	handle_gesture = None
-	gestureRecognizer = None
-	
-	def __init__(self):
-		self.handle_gesture = self.add_gesture_from_points
-		self.gestureRecognizer = GestureRecognizer()
-	
-	def add_gesture_from_points(self, points):
-		self.base.add_gesture(self.className, points)
-		
-	def save(self):
-		self.base.save("Gestures.json")
-		
-	def learn(self):
-		self.gestureRecognizer.train(self.base)
-	
-	def classify(self, points):
-		self.gestureRecognizer.classify(points)
-		
-	def toggle_mode(self):
-		if(self.handle_gesture == self.add_gesture_from_points):
-			self.handle_gesture = self.classify
-			return "Classifying"
-		else:
-			self.handle_gesture = self.add_gesture_from_points
-			return "Adding"
+		index = index[0]
+		print("Class Id %d" % index)
+		prob = prob[0][index]
+		print("Probability {:.1%}".format(prob))
 		
 
-class ToolBar(BoxLayout):
-	controller = None
-	classInput = None
-	classesSpinner = None
-	saveButton = None
-	learnButton = None
-	toggleModeButton = None
-	
+class ToolBar(BoxLayout):	
 	def __init__(self, **kwargs):
+		self.controller = kwargs.pop("controller")
 		super(ToolBar, self).__init__(**kwargs)
 		
 		self.add_widget(Label(text='Class:'))
@@ -200,6 +192,10 @@ class ToolBar(BoxLayout):
 		self.saveButton.bind(on_release=self.save_gestures)
 		self.add_widget(self.saveButton)
 		
+		self.loadButton = Button(text='Load Gestures')
+		self.loadButton.bind(on_release=self.load_gestures)
+		self.add_widget(self.loadButton)
+		
 		self.learnButton = Button(text='Learn')
 		self.learnButton.bind(on_release=self.learn_gestures)
 		self.add_widget(self.learnButton)
@@ -211,6 +207,9 @@ class ToolBar(BoxLayout):
 		
 	def save_gestures(self, button):
 		self.controller.save()
+		
+	def load_gestures(self, button):
+		self.controller.load()
 		
 	def learn_gestures(self, button):
 		self.controller.learn()
@@ -238,47 +237,84 @@ class MyPaintWidget(Widget):
 		super(MyPaintWidget, self).__init__(**kwargs)
 	
 	def on_touch_down(self, touch):
-		p = (touch.x, touch.y)
-		if self.collide_point(*p):
+		self.p = (touch.x, touch.y)
+		if self.collide_point(*self.p):
+			self.canvas.clear()
 			color = (random(), 1, 1)
 			with self.canvas:
 				Color(*color, mode='hsv')
 				touch.ud['line'] = Line(points=[touch.x, touch.y])
+				Ellipse(pos=[touch.x - 2, touch.y - 2], size=[4, 4])
 
 	def on_touch_move(self, touch):
 		if 'line' in touch.ud:
-			line = touch.ud['line']
-			line.points += [touch.x, touch.y]
+			p = [touch.x, touch.y]
+			if ((np.linalg.norm(np.subtract(p, self.p))) > 20):
+				with self.canvas:
+					Ellipse(pos=[touch.x - 2, touch.y - 2], size=[4, 4])
+				line = touch.ud['line']
+				line.points += p
+				self.p = p
 		
 	def on_touch_up(self, touch):
 		if 'line' in touch.ud:
 			line = touch.ud['line']
-			if(self.previousLine != None):
-				self.canvas.remove(self.previousLine)
 			
 			self.previousLine = line
 			self.controller.handle_gesture(line.points)
-
+			print(len(line.points))
 
 
 class GestureApp(App):
-	controller = Controller()
 
 	def build(self):
 		layout = BoxLayout(orientation='vertical')
 		
-		toolbar = ToolBar(size_hint=(1, None), height=40)
-		toolbar.controller = self.controller
-		layout.add_widget(toolbar)
+		self.toolBar = ToolBar(size_hint=(1, None), height=40, controller=self)
+		layout.add_widget(self.toolBar)
 		
 		mainArea = MyPaintWidget(size_hint=(1, 1))
-		mainArea.controller = self.controller
+		mainArea.controller = self
 		layout.add_widget(mainArea)
 		
 		return layout
 
 	def clear_canvas(self, obj):
 		self.painter.canvas.clear()
+		
+		
+	def __init__(self, **kwargs):
+		super(GestureApp, self).__init__(**kwargs)
+		self.handle_gesture = self.add_gesture_from_points
+		self.gestureRecognizer = GestureRecognizer()
+		self.base = GestureBase()
+		self.className = 'None'
+	
+	def add_gesture_from_points(self, points):
+		self.base.add_gesture(self.className, points)
+		
+	def save(self):
+		self.base.save("Gestures.json")
+		
+	def load(self):
+		self.base.load("Gestures.json")
+		asd = self.base.get_classes_in_order()
+		print(asd)
+		self.toolBar.classesSpinner.values = self.base.get_classes_in_order()
+		
+	def learn(self):
+		self.gestureRecognizer.train(self.base)
+	
+	def classify(self, points):
+		self.gestureRecognizer.classify(points)
+		
+	def toggle_mode(self):
+		if(self.handle_gesture == self.add_gesture_from_points):
+			self.handle_gesture = self.classify
+			return "Classifying"
+		else:
+			self.handle_gesture = self.add_gesture_from_points
+			return "Adding"
 
 
 if __name__ == '__main__':
