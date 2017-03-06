@@ -105,10 +105,8 @@ class GestureRecognizer:
 		self.inputData = tf.placeholder(tf.float32, [None, maxLen, self.sampleVectorLen])
 		self.expectedClasses = tf.placeholder(tf.float32, [None, 10])
 		self.inputLengths = tf.placeholder(tf.int32, [None])
-		print("########################")
-		print(tf.shape(self.inputData)[0])
 				
-		cell = tf.nn.rnn_cell.LSTMCell(self.numMemCells, state_is_tuple=True)
+		cell = tf.contrib.rnn.LSTMCell(self.numMemCells, state_is_tuple=True)
 		cellOut, cellState = tf.nn.dynamic_rnn(
 			cell, self.inputData, dtype=tf.float32, sequence_length=self.inputLengths)
 		
@@ -126,7 +124,7 @@ class GestureRecognizer:
 		#prediction = tf.nn.softmax(tf.matmul(last, weight) + bias)
 		prediction = tf.matmul(last, weight) + bias
 		
-		cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(prediction, self.expectedClasses))
+		cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=prediction, labels=self.expectedClasses))
 		#cross_entropy = -tf.reduce_sum(self.expectedClasses * tf.log(tf.clip_by_value(prediction,1e-10,1.0)))
 		optimizer = tf.train.GradientDescentOptimizer(0.1)
 		self.trainer = optimizer.minimize(cross_entropy)
