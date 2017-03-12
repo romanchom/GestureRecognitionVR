@@ -110,14 +110,12 @@ class GestureRecognizer:
 		cellOut, cellState = tf.nn.dynamic_rnn(
 			cell, self.inputData, dtype=tf.float32, sequence_length=self.inputLengths)
 		
-		#last = cellState[1]
-		#cellOut = tf.transpose(cellOut, [1, 0, 2])
+		
 		batchSize = tf.shape(cellOut)[0]
 		index = tf.range(0, batchSize) * maxLen + (self.inputLengths - 1)
 		flat = tf.reshape(cellOut, [-1, self.numMemCells])
 		last = tf.gather(flat, index)
 		print(last.get_shape())
-		#last = tf.gather(cellOutTrans, int(cellOutTrans.get_shape()[0]) - 1)
 		
 		weight = tf.Variable(tf.truncated_normal([self.numMemCells, int(self.expectedClasses.get_shape()[1])], stddev = 0.1))
 		bias = tf.Variable(tf.constant(0.1, shape=[self.expectedClasses.get_shape()[1]]))
