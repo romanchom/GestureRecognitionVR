@@ -2,6 +2,7 @@ import sqlite3
 import numpy as np
 from itertools import groupby
 from Gesture import Gesture
+from Example import Example
 
 class SQLBase:
     def __init__(self, file):
@@ -26,7 +27,7 @@ class SQLBase:
                 self.gesture_id[name] = identifier
                 
         for g in raw_list:
-            data = np.reshape(np.frombuffer(g[4], dtype='float32'), [-1, 14])
+            data = np.reshape(np.frombuffer(g[4], dtype='float32'), [-1, 14])[:, 1:]
             self.max_length = max(self.max_length, data.shape[0])
             self.gesture_list.append(Gesture(self.gesture_id[g[0]], g[1], g[2] - 1, g[3], data))
 
@@ -43,7 +44,8 @@ class SQLBase:
         train_set = []
         test_set = []
         for g in self.gesture_list:
-            (train_set if g.trial < 5 else test_set).append((g.label_id, g.data))
+            #(train_set if g.trial < 5 else test_set).append((g.label_id, g.data))
+            (train_set if g.trial < 5 else test_set).append(Example(g.data, g.label_id, self.max_length, 0.8))
         return train_set, test_set
 
     def get_user_dependent_sets(self, tester):

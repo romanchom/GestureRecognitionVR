@@ -4,6 +4,7 @@ import numpy as np
 
 class Recognizer:
     def __init__(self, feature_count, class_count, max_length):
+        batch_size = None
         num_mem_cells = 20
         # MODEL VARIABLES   
         with tf.variable_scope('variables'):     
@@ -19,9 +20,10 @@ class Recognizer:
         with tf.variable_scope('training'):
         # INPUT DATA
             with tf.variable_scope('input'):
-                self.examples = tf.placeholder(tf.float32, [None, max_length, feature_count], name="examples")
-                self.labels = tf.placeholder(tf.float32, [None, max_length, class_count], name="labels")
-                self.lengths = tf.placeholder(tf.int32, [None], name="lengths")
+                self.examples = tf.placeholder(tf.float32, [batch_size, max_length, feature_count], name="examples")
+                self.labels = tf.placeholder(tf.int32, [batch_size, max_length], name="labels")
+                self.lengths = tf.placeholder(tf.int32, [batch_size], name="lengths")
+                print(self.lengths)
                 
             
             with tf.variable_scope('operations'):
@@ -31,16 +33,25 @@ class Recognizer:
             
                 flat = tf.reshape(cell_out, (-1, num_mem_cells))
                 prediction = tf.matmul(flat, self.weight) + self.bias
-                prediction = tf.reshape(prediction, (tf.shape(self.examples)[0], max_length, 2))
+                prediction = tf.reshape(prediction, (tf.shape(self.examples)[0], max_length, class_count))
                 
-                self.cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=prediction, labels=self.labels)
-                self.cross_entropy = tf.reduce_mean(self.cross_entropy, name="cross_entropy")
+                self.cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=prediction, labels=self.labels)
+                mask = tf.sequence_mask(self.lengths,  max_length)
+                self.cross_entropy = tf.reduce_mean(tf.boolean_mask(self.cross_entropy, mask), name="cross_entropy")
                 
                 optimizer = tf.train.AdamOptimizer()
                 self.optimize = optimizer.minimize(self.cross_entropy, name="optimize")
         
                 # EXAMINATION OPERATION
-                self.prediction = tf.nn.softmax(prediction)
+                print("#############")
+                indices = tf.expand_dims(self.lengths - 1, 1)
+                sequence = tf.expand_dims(tf.range(tf.shape(self.lengths)[0], dtype=tf.int32), 1)
+                indices = tf.concat([sequence, indices], 1)
+
+                self.prediction = tf.nn.softmax(tf.gather_nd(prediction, indices))
+                self.correct_percentage = tf.to_int32(tf.argmax(prediction, axis=1))
+                self.correct_percentage = tf.equal(self.correct_percentage, tf.gather_nd(self.labels, indices))
+                self.correct_percentage = tf.reduce_mean(tf.to_float(self.correct_percentage))
 
         init_op = tf.global_variables_initializer()
         self.sess = tf.Session()
@@ -54,7 +65,12 @@ class Recognizer:
         }
         self.sess.run(self.optimize, feed)
 
-    def test(self, examples, labels):
-        pass
+    def test(self, examples, labels, lengths):
+        feed = {
+            self.examples : examples,
+            self.labels : labels,
+            self.lengths : lengths
+        }
+        return self.sess.run([self.cross_entropy, self.correct_percentage, self.prediction], feed)
 
         
