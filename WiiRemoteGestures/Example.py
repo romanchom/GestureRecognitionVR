@@ -31,7 +31,7 @@ class Example:
         
         lengths = np.ndarray(count, 'int32')
         for i in range(count):
-            labels[i] = data[i].length
+            lengths[i] = data[i].length
         
         return examples, labels, lengths
         

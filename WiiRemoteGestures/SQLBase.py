@@ -9,7 +9,6 @@ class SQLBase:
         self.gesture_name = ['none']
         self.gesture_id = {'none' : 0}
         self.gesture_list = []
-        self.feature_count = 14
         self.class_count = 1
         self.max_length = 0
 
@@ -26,8 +25,10 @@ class SQLBase:
                 self.gesture_name.append(name)
                 self.gesture_id[name] = identifier
                 
+        features = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
+        self.feature_count = len(features)
         for g in raw_list:
-            data = np.reshape(np.frombuffer(g[4], dtype='float32'), [-1, 14])[:, 1:]
+            data = np.reshape(np.frombuffer(g[4], dtype='float32'), [-1, 14])[:, features]
             self.max_length = max(self.max_length, data.shape[0])
             self.gesture_list.append(Gesture(self.gesture_id[g[0]], g[1], g[2] - 1, g[3], data))
 
@@ -45,7 +46,7 @@ class SQLBase:
         test_set = []
         for g in self.gesture_list:
             #(train_set if g.trial < 5 else test_set).append((g.label_id, g.data))
-            (train_set if g.trial < 5 else test_set).append(Example(g.data, g.label_id, self.max_length, 0.8))
+            (train_set if g.trial < 5 else test_set).append(Example(g.data, g.label_id, self.max_length, 0.2))
         return train_set, test_set
 
     def get_user_dependent_sets(self, tester):

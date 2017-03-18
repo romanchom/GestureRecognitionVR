@@ -1,3 +1,5 @@
 WiiRemoteGestures/__pycache__/
 WiiRemoteGestures/.vscode/
 *.db
+WiiRemoteGestures/save/
+WiiRemoteGestures/log/
