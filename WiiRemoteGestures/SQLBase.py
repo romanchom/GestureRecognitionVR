@@ -3,6 +3,7 @@ import numpy as np
 from itertools import groupby
 from Gesture import Gesture
 from Example import Example
+import random
 
 class SQLBase:
     def __init__(self, file):
@@ -25,7 +26,7 @@ class SQLBase:
                 self.gesture_name.append(name)
                 self.gesture_id[name] = identifier
                 
-        features = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
+        features = np.array([1, 2, 3, 4, 5, 6, 7])
         self.feature_count = len(features)
         for g in raw_list:
             data = np.reshape(np.frombuffer(g[4], dtype='float32'), [-1, 14])[:, features]
@@ -46,15 +47,20 @@ class SQLBase:
         test_set = []
         for g in self.gesture_list:
             #(train_set if g.trial < 5 else test_set).append((g.label_id, g.data))
-            (train_set if g.trial < 5 else test_set).append(Example(g.data, g.label_id, self.max_length, 0.2))
+            (train_set if g.trial < 5 else test_set).append(Example(g.data, g.label_id, self.max_length, 0.5))
         return train_set, test_set
 
     def get_user_dependent_sets(self, tester):
         '''Returns two disjoint sets:  
             each containing half of gestureas of each type of a single tester'''
-        
-        pass
-        
+        user = random.choice(self.gesture_list).tester
+        train_set = []
+        test_set = []
+        for g in self.gesture_list:
+            if(g.tester == user):
+                (train_set if g.trial < 5 else test_set).append(Example(g.data, g.label_id, self.max_length, 0.5))
+        return train_set, test_set
+
     def get_user_independent_sets(self):
         '''Returns two disjoints sets:
             one containing all gestures of random 5 righthanded testers,

@@ -32,28 +32,44 @@ class MyApp(App):
 
     def train_nn(self):
         no_improvement_limit = 200
+        batch_size = 200
+        best_percentage = 80
 
         random.seed()
         base = SQLBase('MotionGesture.db')
         recognizer = Recognizer(base.feature_count, base.class_count, base.max_length)
         
-        train_set, test_set = base.get_large_sets()
+        #train_set, test_set = base.get_large_sets()
+        train_set, test_set = base.get_user_dependent_sets('')
 
         test_examples, test_labels, test_lengths = Example.to_numpy(test_set)
+        train_examples, train_labels, train_lengths = None, None, None
+                
+        if(len(train_set) <= batch_size):
+            train_examples, train_labels, train_lengths = Example.to_numpy(train_set)
             
         for i in range(10000):
-            batch_size = 200
-            random.shuffle(train_set)
-            for i in range(0, len(train_set) - batch_size + 1 , batch_size):
-                train_examples, train_labels, train_lengths = Example.to_numpy(train_set[i:i+batch_size])
+            if(len(train_set) > batch_size):
+                random.shuffle(train_set)
+                for i in range(0, len(train_set) - batch_size + 1 , batch_size):
+                    train_examples, train_labels, train_lengths = Example.to_numpy(train_set[i:i+batch_size])
+                    recognizer.train(train_examples, train_labels, train_lengths)
+                    if(self.should_exit): break
+            else:
                 recognizer.train(train_examples, train_labels, train_lengths)
-                if(self.should_exit): break
             
             if(self.should_exit): break
             #cross_entropy, percentage, _ = recognizer.test(test_examples, test_labels, test_lengths)
             cross_entropy, percentage, _, total_pred = recognizer.test(test_examples, test_labels, test_lengths)
             print("Cross entropy {}, percentage correct {}".format(cross_entropy, percentage))
-            recognizer.save()
+            if percentage > best_percentage:
+                best_percentage = percentage
+                recognizer.save()
+            if cross_entropy < 0.5:
+                recognizer.learning_rate = 0.02
+            elif cross_entropy < 1.0:
+                recognizer.learning_rate = 0.1
+
             index = random.randrange(len(test_examples))
             result = total_pred[index]
             labels = test_labels[index]
