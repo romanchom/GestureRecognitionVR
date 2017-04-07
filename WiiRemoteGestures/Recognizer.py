@@ -8,7 +8,7 @@ class Recognizer:
         self.learning_rate = 0.2
         batch_size = None
         num_mem_cells = 64
-        conv_width = 8
+        conv_width = 4
         conv_height = 1
         conv_in_channels = feature_count
         conv_out_channels = 128
@@ -31,13 +31,14 @@ class Recognizer:
                 self.examples = tf.placeholder(tf.float32, [batch_size, max_length, feature_count], name="examples")
                 self.labels = tf.placeholder(tf.int32, [batch_size, max_length], name="labels")
                 self.lengths = tf.placeholder(tf.int32, [batch_size], name="lengths")
+                self.keep_prob = tf.placeholder(tf.float32, (), name='keep_prob')
                 
             with tf.variable_scope('operations'):
                 conv_input = tf.reshape(self.examples, (-1, 1, max_length, conv_in_channels))
                 conv = tf.nn.conv2d(conv_input, self.conv_filter, [1, 1, 1, 1], 'SAME', True)
                 conv = tf.nn.bias_add(conv, self.conv_biases)
-                conv = tf.nn.relu(conv)
-                conv = tf.nn.dropout(conv, 0.9)
+                conv = tf.nn.sigmoid(conv)
+                conv = tf.nn.dropout(conv, self.keep_prob)
 
                 cell_in = tf.reshape(conv, (-1, max_length, conv_out_channels))
                 # TRAINING AND VALIDATION OPERATIONS
@@ -58,7 +59,7 @@ class Recognizer:
                 #self.cross_entropy = tf.reduce_mean(tf.boolean_mask(self.cross_entropy, mask), name="cross_entropy")
                 
                 optimizer = tf.train.AdamOptimizer()
-                self.learning_rate_var = tf.placeholder(tf.float32, shape=(), name='learning_rate')
+                #self.learning_rate_var = tf.placeholder(tf.float32, shape=(), name='learning_rate')
                 #optimizer = tf.train.GradientDescentOptimizer(self.learning_rate_var)
                 self.optimize = optimizer.minimize(self.cross_entropy, name="optimize")
         
@@ -73,27 +74,32 @@ class Recognizer:
                 self.correct_percentage = tf.equal(self.correct_percentage, tf.gather_nd(self.labels, indices))
                 self.correct_percentage = tf.reduce_mean(tf.to_float(self.correct_percentage))
 
-        init_op = tf.global_variables_initializer()
         self.sess = tf.Session()
+        self.reset()
+        #writer = tf.summary.FileWriter("./log", self.sess.graph)
+        #writer.close()
+
+    def reset(self):
+        init_op = tf.global_variables_initializer()
         self.sess.run(init_op)
 
-        writer = tf.summary.FileWriter("./log", self.sess.graph)
-        writer.close()
 
     def train(self, examples, labels, lengths):
         feed = {
             self.examples : examples,
             self.labels : labels,
             self.lengths : lengths,
-            self.learning_rate_var : self.learning_rate
+            self.keep_prob : 0.9,
         }
-        self.sess.run(self.optimize, feed)
+        _, ret = self.sess.run([self.optimize, self.cross_entropy], feed)
+        return ret
 
     def test(self, examples, labels, lengths):
         feed = {
             self.examples : examples,
             self.labels : labels,
-            self.lengths : lengths
+            self.lengths : lengths,
+            self.keep_prob : 1.0
         }
         return self.sess.run([self.cross_entropy, self.correct_percentage, self.prediction, self.total_predictions], feed)
 

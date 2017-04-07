@@ -1,106 +1,81 @@
-from SQLBase import SQLBase
-from Example import Example
-import numpy as np
-from Recognizer import Recognizer
 import random
-
-from threading import Thread
-
-from kivy.app import App
-from GraphViewerWidget import GraphViewerWidget
+import math
 import numpy as np
-from kivy.clock import Clock
 
-class MyApp(App):
+from Example import Example
+from Recognizer import Recognizer
+from SQLBase import SQLBase
+
+
+class MyApp:
     def __init__(self, **kwargs):
-        super(MyApp, self).__init__(**kwargs)
-        self.train_thread = Thread(target=self.train_nn)
         self.should_exit = False
         self.should_load = True
         self.should_save = True
-
-    def build(self):
-        self.graph = GraphViewerWidget()
-        self.graph.set_graph("truth", [0, 0, 1, 1], (0, 1, 0))
-        self.graph.set_graph("prediction", [0, 1, 1, 0], (1, 0, 0))
-        self.train_thread.start()
-        return self.graph
-
-    def on_stop(self):
-        self.should_exit = True
-        self.train_thread.join()
-
-    def train_nn(self):
-        no_improvement_limit = 200
-        batch_size = 200
-        best_percentage = 80
-
+        self.base = SQLBase('MotionGesture.db')
+        self.recognizer = Recognizer(self.base.feature_count, self.base.class_count, self.base.max_length)
         random.seed()
-        base = SQLBase('MotionGesture.db')
-        recognizer = Recognizer(base.feature_count, base.class_count, base.max_length)
-        
-        #train_set, test_set = base.get_large_sets()
-        train_set, test_set = base.get_user_dependent_sets('')
 
-        test_examples, test_labels, test_lengths = Example.to_numpy(test_set)
+    def do_science(self):
+        user = random.choice(list(self.base.users.keys()))
+        #train_set, test_set = self.base.get_user_dependent_sets(user)
+        train_set, self.test_set = self.base.get_user_independent_sets()
+        self.train_nn(train_set)
+        self.test_nn(self.test_set)
+
+    def train_nn(self, train_set):
+        no_improvement_limit = 20
+        batch_size = 200
+        best_cross_entropy = math.inf
+        epochs_without_improvement = 0
+
         train_examples, train_labels, train_lengths = None, None, None
-                
-        if(len(train_set) <= batch_size):
+        
+        batched_training = len(train_set) > batch_size
+        if not batched_training:
             train_examples, train_labels, train_lengths = Example.to_numpy(train_set)
             
-        for i in range(10000):
-            if(len(train_set) > batch_size):
+        while True:
+            # train on given set
+            cross_entropy = 0.0
+            if batched_training:
+                batch_count = 0
                 random.shuffle(train_set)
-                for i in range(0, len(train_set) - batch_size + 1 , batch_size):
+                for i in range(0, len(train_set), batch_size):
+                    batch_count += 1
                     train_examples, train_labels, train_lengths = Example.to_numpy(train_set[i:i+batch_size])
-                    recognizer.train(train_examples, train_labels, train_lengths)
-                    if(self.should_exit): break
+                    cross_entropy += self.recognizer.train(train_examples, train_labels, train_lengths)
+                cross_entropy /= batch_count
             else:
-                recognizer.train(train_examples, train_labels, train_lengths)
+                cross_entropy = self.recognizer.train(train_examples, train_labels, train_lengths)
             
-            if(self.should_exit): break
-            #cross_entropy, percentage, _ = recognizer.test(test_examples, test_labels, test_lengths)
-            cross_entropy, percentage, _, total_pred = recognizer.test(test_examples, test_labels, test_lengths)
-            print("Cross entropy {}, percentage correct {}".format(cross_entropy, percentage))
-            if percentage > best_percentage:
-                best_percentage = percentage
-                recognizer.save()
-            if cross_entropy < 0.5:
-                recognizer.learning_rate = 0.02
-            elif cross_entropy < 1.0:
-                recognizer.learning_rate = 0.1
+            # test if cross entropy improves
+            if cross_entropy < best_cross_entropy:
+                best_cross_entropy = cross_entropy
+                epochs_without_improvement = 0
+                #self.recognizer.save()
+                print("\nTraining cross entropy improved to {}".format(cross_entropy))
+                self.test_nn(self.test_set)
+            else:
+                epochs_without_improvement += 1
+                print('.', end='', flush=True)
 
-            index = random.randrange(len(test_examples))
-            result = total_pred[index]
-            labels = test_labels[index]
-            
-            lab_index = test_set[index].label
 
-            ground_truth = [lab_index == labels[i] for i in range(base.max_length)]
-            prediction = result[:, lab_index]
-            xs = np.linspace(0.0, 1.0, base.max_length)
-            
-            interleaved = np.zeros(base.max_length * 2)
-            interleaved[0::2] = xs
-            interleaved[1::2] = ground_truth
-            self.gui_truth = interleaved.tolist()
-
-            interleaved[1::2] = prediction
-            self.gui_prediction = interleaved.tolist()
-
-            Clock.schedule_once(self.update_gui)
+            # test if training should end
+            if epochs_without_improvement >= no_improvement_limit:
+                print("Long time without improvement, ending training")
+                break
 
         #self.nn.export_to_protobuffer("./export")
-        
 
-    def update_gui(self, dt):
-        self.graph.set_graph("truth", self.gui_truth, (0, 1, 0))
-        self.graph.set_graph("prediction", self.gui_prediction, (1, 0, 0))
-        #self.graph.set_graph("prediction_new", self.gui_prediction_new, (0, 0, 1))
+    def test_nn(self, test_set):
+        test_examples, test_labels, test_lengths = Example.to_numpy(test_set) 
+        cross_entropy, percentage, _, total_pred = self.recognizer.test(test_examples, test_labels, test_lengths)
+        print("Test cross entropy {}, percentage correct {:.2%}".format(cross_entropy, percentage))
 
 
 if __name__ == '__main__':
     app = MyApp()
     app.should_load = False
     app.should_save = True
-    app.run()
+    app.do_science()
