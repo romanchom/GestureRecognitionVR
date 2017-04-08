@@ -3,7 +3,7 @@ import numpy as np
 
 
 class Example:
-    def __init__(self, data, label = 0, padded_width = 1, label_from = 0.8):
+    def __init__(self, data, label = 0, padded_width = 1):
         self.label = label
 
         current_width = data.shape[0]
@@ -12,9 +12,7 @@ class Example:
         pad_amount = padded_width - current_width
         self.data = np.pad(data, ((0, pad_amount), (0, 0)), 'edge')
 
-        label_from_index = int(label_from * current_width)
-        self.labels = np.zeros(padded_width, 'int32')
-        self.labels[label_from_index:] = label
+        self.label = label
         
     def to_numpy(data):
         count = len(data)
@@ -24,10 +22,10 @@ class Example:
         for i in range(count):
             examples[i] = data[i].data
         
-        shape = shape[:-1]
-        labels = np.ndarray(shape, 'int32')
+        #shape = shape[:-1]
+        labels = np.ndarray(count, 'int32')
         for i in range(count):
-            labels[i] = data[i].labels
+            labels[i] = data[i].label
         
         lengths = np.ndarray(count, 'int32')
         for i in range(count):

@@ -18,7 +18,8 @@ class MyApp:
 
     def do_science(self):
         user = random.choice(list(self.base.users.keys()))
-        #train_set, test_set = self.base.get_user_dependent_sets(user)
+        #train_set, self.test_set = self.base.get_user_dependent_sets(user)
+        #train_set, self.test_set = self.base.get_large_sets()
         train_set, self.test_set = self.base.get_user_independent_sets()
         self.train_nn(train_set)
         self.test_nn(self.test_set)

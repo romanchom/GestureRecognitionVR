@@ -20,7 +20,7 @@ class SQLBase:
 
         db = sqlite3.connect(file)
         c = db.cursor()
-        command = 'SELECT name, tester, trial, righthand, data FROM GestureTable ORDER BY name'
+        command = 'SELECT name, tester, trial, righthand, data FROM GestureTable WHERE trial <= 10 ORDER BY name '
         raw_list = c.execute(command).fetchall()
 
         for g in raw_list:
@@ -31,7 +31,7 @@ class SQLBase:
                 self.class_count += 1
                 self.gesture_name.append(name)
                 self.gesture_id[name] = identifier
-                
+
         for g in raw_list:
             data = np.apply_along_axis(SQLBase.transform_data, 1, np.reshape(np.frombuffer(g[4], dtype='float32'), [-1, 14]))
             self.max_length = max(self.max_length, data.shape[0])
@@ -47,11 +47,11 @@ class SQLBase:
     def transform_data(data):
         ret = np.zeros(18, 'float32')
         # copy position
-        ret[0:3] = data[1:4]
+        #ret[0:3] = data[1:4]
 
         # transform quaternion to rotation matrix
         # order of result actually doesn't matter
-        qw = data[4]
+        """qw = data[4]
         qx = data[5]
         qy = data[6]
         qz = data[7]
@@ -75,7 +75,7 @@ class SQLBase:
         tmp1 = qy * qz
         tmp2 = qx * qw
         ret[10] = 2 * (tmp1 + tmp2)
-        ret[8] = 2 * (tmp1 - tmp2)
+        ret[8] = 2 * (tmp1 - tmp2)"""
 
         ret[12:18] = data[8:14]
 
@@ -89,7 +89,9 @@ class SQLBase:
         test_set = []
         for g in self.gesture_list:
             #(train_set if g.trial < 5 else test_set).append((g.label_id, g.data))
-            (train_set if g.trial < 5 else test_set).append(Example(g.data, g.label_id, self.max_length, 0.5))
+            (train_set if g.trial < 5 else test_set).append(Example(g.data, g.label_id, self.max_length))
+        
+        print("Train set: {}, Test set: {}".format(len(train_set), len(test_set)))
         return train_set, test_set
 
     def get_user_dependent_sets(self, tester):
@@ -99,7 +101,9 @@ class SQLBase:
         test_set = []
         for g in self.gesture_list:
             if(g.tester == tester):
-                (train_set if g.trial < 5 else test_set).append(Example(g.data, g.label_id, self.max_length, 0.5))
+                (train_set if g.trial < 5 else test_set).append(Example(g.data, g.label_id, self.max_length))
+                
+        print("Train set: {}, Test set: {}".format(len(train_set), len(test_set)))
         return train_set, test_set
 
     def get_user_independent_sets(self):
@@ -120,7 +124,9 @@ class SQLBase:
         train_set = []
         test_set = []
         for g in self.gesture_list:
-            (train_set if g.tester in users else test_set).append(Example(g.data, g.label_id, self.max_length, 0.5))
+            (train_set if g.tester in users else test_set).append(Example(g.data, g.label_id, self.max_length))
+
+        print("Train set: {}, Test set: {}".format(len(train_set), len(test_set)))
         return train_set, test_set
 
 
