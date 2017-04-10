@@ -46,6 +46,7 @@ class Recognizer:
                 conv = tf.nn.conv2d(conv_input, self.conv_filter, [1, 1, 1, 1], 'VALID', True)
                 conv = tf.nn.bias_add(conv, self.conv_biases)
                 conv = tf.nn.sigmoid(conv)
+                conv = tf.nn.max_pool(conv, [1, 1, conv_width, 1], [1, 1, 1, 1], 'SAME')
                 conv = tf.nn.dropout(conv, self.keep_prob)
                 
 
@@ -67,7 +68,7 @@ class Recognizer:
                 flat = tf.reshape(self.cross_entropy, [-1])
                 self.cross_entropy = tf.gather(flat, index)
                 self.cross_entropy = tf.reduce_mean(self.cross_entropy, name='cross_entropy')"""
-                mask = tf.logical_xor(tf.sequence_mask(self.lengths,  new_length), tf.sequence_mask(self.lengths - 16,  new_length))
+                mask = tf.logical_xor(tf.sequence_mask(self.lengths-4,  new_length), tf.sequence_mask(self.lengths - 12,  new_length))
                 #mask = tf.sequence_mask(self.lengths,  new_length)
                 self.cross_entropy = tf.reduce_mean(tf.boolean_mask(self.cross_entropy, mask), name="cross_entropy")
                 

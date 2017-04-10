@@ -16,7 +16,6 @@ class SQLBase:
         self.users = {}
         self.class_count = 1
         self.max_length = 0
-        self.feature_count = 18
 
         db = sqlite3.connect(file)
         c = db.cursor()
@@ -33,10 +32,15 @@ class SQLBase:
                 self.gesture_id[name] = identifier
 
         for g in raw_list:
-            data = np.apply_along_axis(SQLBase.transform_data, 1, np.reshape(np.frombuffer(g[4], dtype='float32'), [-1, 14]))
+            data = np.frombuffer(g[4], dtype='float32')
+            data = np.reshape(data, [-1, 14])
+            #data = np.transpose(data, axes=[1, 0])
+            data = np.apply_along_axis(SQLBase.transform_data, 1, data)
             self.max_length = max(self.max_length, data.shape[0])
             self.gesture_list.append(Gesture(self.gesture_id[g[0]], g[1], g[2] - 1, g[3], data))
 
+        self.feature_count = self.gesture_list[0].data.shape[1]
+        #print(self.gesture_list[0].data[:, 1])
         # 14 floats per time point
         # [0] timestamp
         # [1:4] xyz position in meters
@@ -45,13 +49,14 @@ class SQLBase:
         # [11:14] angular speed (yaw, pitch, roll)
         
     def transform_data(data):
+        return data[1:]
         ret = np.zeros(18, 'float32')
         # copy position
         #ret[0:3] = data[1:4]
 
         # transform quaternion to rotation matrix
         # order of result actually doesn't matter
-        """qw = data[4]
+        qw = data[4]
         qx = data[5]
         qy = data[6]
         qz = data[7]
@@ -75,7 +80,7 @@ class SQLBase:
         tmp1 = qy * qz
         tmp2 = qx * qw
         ret[10] = 2 * (tmp1 + tmp2)
-        ret[8] = 2 * (tmp1 - tmp2)"""
+        ret[8] = 2 * (tmp1 - tmp2)
 
         ret[12:18] = data[8:14]
 
@@ -124,7 +129,8 @@ class SQLBase:
         train_set = []
         test_set = []
         for g in self.gesture_list:
-            (train_set if g.tester in users else test_set).append(Example(g.data, g.label_id, self.max_length))
+            if g.hand == 1:
+                (train_set if g.tester in users else test_set).append(Example(g.data, g.label_id, self.max_length))
 
         print("Train set: {}, Test set: {}".format(len(train_set), len(test_set)))
         return train_set, test_set

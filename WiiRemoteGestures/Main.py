@@ -1,6 +1,7 @@
 import random
 import math
 import numpy as np
+import io
 
 from Example import Example
 from Recognizer import Recognizer
@@ -16,16 +17,36 @@ class MyApp:
         self.recognizer = Recognizer(self.base.feature_count, self.base.class_count, self.base.max_length)
         random.seed()
 
-    def do_science(self):
-        user = random.choice(list(self.base.users.keys()))
-        #train_set, self.test_set = self.base.get_user_dependent_sets(user)
-        #train_set, self.test_set = self.base.get_large_sets()
-        train_set, self.test_set = self.base.get_user_independent_sets()
+    def do_random_science(self):
+        train_set, test_set = self.base.get_large_sets()
         self.train_nn(train_set)
-        self.test_nn(self.test_set)
+        self.test_nn(test_set)
+
+
+    def do_user_independent_scienece(self):
+        train_set, test_set = self.base.get_user_independent_sets()
+        self.train_nn(train_set)
+        self.test_nn(test_set)
+
+    def do_user_dependent_science(self):
+        with open('user dependent.txt', 'w') as f:
+            for user in self.base.users.keys():
+                train_set, test_set = self.base.get_user_dependent_sets(user)
+                self.recognizer.reset()
+                print('Training with user {}'.format(user))
+                self.train_nn(train_set)
+                test_examples, test_labels, test_lengths = Example.to_numpy(test_set) 
+                cross_entropy, percentage, _, total_pred = self.recognizer.test(test_examples, test_labels, test_lengths)
+                print("Test cross entropy {}, percentage correct {:.2%}".format(cross_entropy, percentage))
+                f.write(str(percentage) +'\n')
+            
+        #user = random.choice(list(self.base.users.keys()))
+        #train_set, self.test_set = self.base.get_large_sets()
+        #train_set, self.test_set = self.base.get_user_independent_sets()
+        #self.test_nn(self.test_set)
 
     def train_nn(self, train_set):
-        no_improvement_limit = 20
+        no_improvement_limit = 10
         batch_size = 200
         best_cross_entropy = math.inf
         epochs_without_improvement = 0
@@ -55,28 +76,47 @@ class MyApp:
                 best_cross_entropy = cross_entropy
                 epochs_without_improvement = 0
                 #self.recognizer.save()
-                print("\nTraining cross entropy improved to {}".format(cross_entropy))
-                self.test_nn(self.test_set)
+                print("Training cross entropy improved to {}".format(cross_entropy))
+                #self.test_nn(self.test_set)
             else:
                 epochs_without_improvement += 1
                 print('.', end='', flush=True)
 
 
             # test if training should end
-            if epochs_without_improvement >= no_improvement_limit:
+            if epochs_without_improvement >= no_improvement_limit or cross_entropy < 0.01:
                 print("Long time without improvement, ending training")
                 break
 
         #self.nn.export_to_protobuffer("./export")
 
     def test_nn(self, test_set):
-        test_examples, test_labels, test_lengths = Example.to_numpy(test_set) 
-        cross_entropy, percentage, _, total_pred = self.recognizer.test(test_examples, test_labels, test_lengths)
-        print("Test cross entropy {}, percentage correct {:.2%}".format(cross_entropy, percentage))
+        batch_size = 200
+        cross_entropy, percentage = (0, 0)
 
+        confusion_matrix = np.zeros([self.base.class_count] * 2, 'int32')
+
+        batch_count = 0
+        for i in range(0, len(test_set), batch_size):
+            batch_count += 1
+            test_examples, test_labels, test_lengths = Example.to_numpy(test_set[i:i+batch_size])
+            c, p, predictions, _ = self.recognizer.test(test_examples, test_labels, test_lengths)
+            cross_entropy += c
+            percentage += p  
+            for (actual, prediction) in zip(test_labels, predictions):
+                predicted = np.argmax(prediction)
+                confusion_matrix[actual, predicted] += 1
+
+        cross_entropy /= batch_count
+        percentage /= batch_count
+        print("Test cross entropy {}, percentage correct {:.2%}".format(cross_entropy, percentage))
+        np.set_printoptions(linewidth=200, formatter={'int' : lambda x: '%3d' % x})
+        for (row, name) in zip(confusion_matrix, self.base.gesture_name):
+            print(row, end='')
+            print(name)
 
 if __name__ == '__main__':
     app = MyApp()
     app.should_load = False
     app.should_save = True
-    app.do_science()
+    app.do_user_independent_scienece()
