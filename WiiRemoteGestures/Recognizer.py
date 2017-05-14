@@ -26,9 +26,9 @@ class Recognizer:
             
         # recurent cells
         cells = [
+            tf.contrib.rnn.GRUCell(num_mem_cells),
             tf.contrib.rnn.LSTMCell(num_mem_cells),
-            tf.contrib.rnn.LSTMCell(num_mem_cells),
-            #tf.contrib.rnn.GRUCell(32),
+            #tf.contrib.rnn.LSTMCell(num_mem_cells),
         ]
         cell = tf.contrib.rnn.MultiRNNCell(cells, state_is_tuple=True)
         

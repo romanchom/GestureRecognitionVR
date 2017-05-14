@@ -13,6 +13,7 @@ class SQLBase:
         self.gesture_name = ['none']
         self.gesture_id = {'none' : 0}
         self.gesture_list = []
+        self.testers = set()
         self.users = {}
         self.class_count = 1
         self.max_length = 0
@@ -20,13 +21,13 @@ class SQLBase:
         db = sqlite3.connect(file)
         c = db.cursor()
 
-        row_size = 55
         command = 'SELECT class, user, trial, userHand, gestureHand, data FROM Gestures ORDER BY user '
             
         raw_list = c.execute(command).fetchall()
 
         for g in raw_list:
             name = g[0]
+            self.testers.add(g[1])
             self.users[g[1]] = g[3]
             if name not in self.gesture_id:
                 identifier = self.class_count
@@ -34,6 +35,7 @@ class SQLBase:
                 self.gesture_name.append(name)
                 self.gesture_id[name] = identifier
 
+        row_size = 55
         for g in raw_list:
             data = np.frombuffer(g[5], dtype='float32')
             data = np.reshape(data, [-1, row_size])
@@ -58,17 +60,19 @@ class SQLBase:
         print("Train set: {}, Test set: {}".format(len(train_set), len(test_set)))
         return train_set, test_set
 
-    def get_user_dependent_sets(self, tester):
-        '''Returns two disjoint sets:  
+    def get_user_dependent_sets(self):
+        '''Returns list of tuples of two disjoint sets:  
             each containing half of gestureas of each type of a single tester'''
-        train_set = []
-        test_set = []
-        for g in self.gesture_list:
-            if(g.tester == tester):
-                (train_set if g.trial % 2 == 0 else test_set).append(Example(g.data, g.label_id, self.max_length))
-                
-        print("Train set: {}, Test set: {}".format(len(train_set), len(test_set)))
-        return train_set, test_set
+        sets = []
+        for tester in self.testers:
+            train_set = []
+            test_set = []
+            for g in self.gesture_list:
+                if(g.tester == tester):
+                    (train_set if g.trial % 2 == 0 else test_set).append(Example(g.data, g.label_id, self.max_length))
+                    
+            sets.append((train_set, test_set, tester))
+        return sets
 
     def get_user_independent_sets(self):
         '''Returns two disjoints sets:
@@ -77,7 +81,7 @@ class SQLBase:
         all_users = list(self.users.items())
         random.shuffle(all_users)
         users = set()
-        count = 2
+        count = 5
         for user in all_users:
             #if user[1] == 1:
             users.add(user[0])
@@ -94,4 +98,22 @@ class SQLBase:
         print("Train set: {}, Test set: {}".format(len(train_set), len(test_set)))
         return train_set, test_set
 
+    def get_cross_validation_sets(self):
+        """
+        Returns list of tuples (training set, test set)
+        where test set contains gestures of a single user
+        and train set contains all other gestures
+        """
+        sets = []
+
+        for tester in self.testers:
+            train_set = []
+            test_set = []
+            for gesture in self.gesture_list:
+                (test_set if gesture.tester == tester else train_set).append(Example(gesture.data, gesture.label_id, self.max_length))
+            sets.append((train_set, test_set))
+
+        return sets
+                    
+        
 

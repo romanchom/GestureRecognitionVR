@@ -9,7 +9,7 @@ def augument(data):
     scale *= np.random.lognormal(sigma=0.1, size=(3, 3)) * np.random.lognormal(sigma = 0.3)
     
     transform = np.identity(3, dtype='float32')
-    transform += np.random.normal(scale=0.2, size=(3,3)) # random rotation/shear
+    transform += np.random.normal(scale=0.1, size=(3,3)) # random rotation/shear
     transform = np.dot(scale, transform) # random scale
     
     offset = np.random.normal(size=3)
