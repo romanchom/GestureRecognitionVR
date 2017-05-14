@@ -9,7 +9,7 @@ from Gesture import Gesture
 
 
 class SQLBase:
-    def __init__(self, file):
+    def __init__(self, file, mode):
         self.gesture_name = ['none']
         self.gesture_id = {'none' : 0}
         self.gesture_list = []
@@ -19,12 +19,15 @@ class SQLBase:
 
         db = sqlite3.connect(file)
         c = db.cursor()
-        command = 'SELECT name, tester, trial, righthand, data FROM GestureTable WHERE trial <= 10 ORDER BY name '
+
+        row_size = 55
+        command = 'SELECT class, user, trial, userHand, gestureHand, data FROM Gestures ORDER BY user '
+            
         raw_list = c.execute(command).fetchall()
 
         for g in raw_list:
             name = g[0]
-            self.users[g[1]] =  g[3]
+            self.users[g[1]] = g[3]
             if name not in self.gesture_id:
                 identifier = self.class_count
                 self.class_count += 1
@@ -32,69 +35,25 @@ class SQLBase:
                 self.gesture_id[name] = identifier
 
         for g in raw_list:
-            data = np.frombuffer(g[4], dtype='float32')
-            data = np.reshape(data, [-1, 14])
-            #data = np.transpose(data, axes=[1, 0])
-            data = np.apply_along_axis(SQLBase.transform_data, 1, data)
+            data = np.frombuffer(g[5], dtype='float32')
+            data = np.reshape(data, [-1, row_size])
+            gestureHand = g[4]
+            if gestureHand == 0: # lefthanded
+                data = data[:, 19:37]
+            else:
+                data = data[:, 37:55]
             self.max_length = max(self.max_length, data.shape[0])
-            self.gesture_list.append(Gesture(self.gesture_id[g[0]], g[1], g[2] - 1, g[3], data))
+            self.gesture_list.append(Gesture(self.gesture_id[g[0]], g[1], g[2] - 1, 1 - g[3], data))
 
         self.feature_count = self.gesture_list[0].data.shape[1]
-        #print(self.gesture_list[0].data[:, 1])
-        # 14 floats per time point
-        # [0] timestamp
-        # [1:4] xyz position in meters
-        # [4:8] quaternion orientation
-        # [8:11] acceleration in local (controller) space
-        # [11:14] angular speed (yaw, pitch, roll)
         
-    def transform_data(data):
-        return data[1:]
-        ret = np.zeros(18, 'float32')
-        # copy position
-        #ret[0:3] = data[1:4]
-
-        # transform quaternion to rotation matrix
-        # order of result actually doesn't matter
-        qw = data[4]
-        qx = data[5]
-        qy = data[6]
-        qz = data[7]
-
-        sqw = qw * qw
-        sqx = qx * qx
-        sqy = qy * qy
-        sqz = qz * qz
-              
-        ret[3] = sqx - sqy - sqz + sqw
-        ret[7] = -sqx + sqy - sqz + sqw
-        ret[11] = -sqx - sqy + sqz + sqw
-        tmp1 = qx * qy
-        tmp2 = qz * qw
-        ret[6] = 2 * (tmp1 + tmp2)
-        ret[4] = 2 * (tmp1 - tmp2)
-        tmp1 = qw * qz
-        tmp2 = qy * qw
-        ret[9] = 2 * (tmp1 - tmp2)
-        ret[5] = 2 * (tmp1 + tmp2)
-        tmp1 = qy * qz
-        tmp2 = qx * qw
-        ret[10] = 2 * (tmp1 + tmp2)
-        ret[8] = 2 * (tmp1 - tmp2)
-
-        ret[12:18] = data[8:14]
-
-        return ret
-
-
     def get_large_sets(self):
         '''Returns two disjoint sets:
             each containing half of gestures of each type of each tester'''
         train_set = []
         test_set = []
         for g in self.gesture_list:
-            #(train_set if g.trial < 5 else test_set).append((g.label_id, g.data))
-            (train_set if g.trial < 5 else test_set).append(Example(g.data, g.label_id, self.max_length))
+            (train_set if g.trial % 2 == 0 else test_set).append(Example(g.data, g.label_id, self.max_length))
         
         print("Train set: {}, Test set: {}".format(len(train_set), len(test_set)))
         return train_set, test_set
@@ -106,7 +65,7 @@ class SQLBase:
         test_set = []
         for g in self.gesture_list:
             if(g.tester == tester):
-                (train_set if g.trial < 5 else test_set).append(Example(g.data, g.label_id, self.max_length))
+                (train_set if g.trial % 2 == 0 else test_set).append(Example(g.data, g.label_id, self.max_length))
                 
         print("Train set: {}, Test set: {}".format(len(train_set), len(test_set)))
         return train_set, test_set
@@ -118,11 +77,11 @@ class SQLBase:
         all_users = list(self.users.items())
         random.shuffle(all_users)
         users = set()
-        count = 5
+        count = 2
         for user in all_users:
-            if user[1] == 1:
-                users.add(user[0])
-                count -= 1
+            #if user[1] == 1:
+            users.add(user[0])
+            count -= 1
             
             if count == 0: break
 
