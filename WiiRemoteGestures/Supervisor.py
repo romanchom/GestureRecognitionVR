@@ -9,8 +9,8 @@ from DataAugumenter import augument
 class Supervisor:
     def __init__(self, feature_count, class_count, max_length):
         self.no_improvement_limit = 20
-        self.batch_size = 200
-        self.min_cross_entropy = 0.01
+        self.batch_size = 100
+        self.min_cross_entropy = 0.05
         self.class_count = class_count
 
         self.recognizer = Recognizer(feature_count, class_count, max_length)
@@ -58,10 +58,8 @@ class Supervisor:
 
         #self.nn.export_to_protobuffer("./export")
 
-    def test_nn(self, test_set):
+    def test_nn(self, test_set, analyzer):
         cross_entropy, percentage = (0, 0)
-
-        confusion_matrix = np.zeros([self.class_count] * 2, 'int32')
 
         data_point_count = len(test_set)
         batch_count = data_point_count // self.batch_size + 1
@@ -73,15 +71,9 @@ class Supervisor:
             count = len(test_examples)
             cross_entropy += c * count
             percentage += p * count
-            for (actual, prediction) in zip(test_labels, predictions):
-                predicted = np.argmax(prediction)
-                confusion_matrix[actual, predicted] += 1
+            analyzer.accumulate(predictions, test_labels)
 
         cross_entropy /= data_point_count
         percentage /= data_point_count
         print("Test cross entropy {}, percentage correct {:.2%}".format(cross_entropy, percentage))
-        #np.set_printoptions(linewidth=200, formatter={'int' : lambda x: '%3d' % x})
-        #for (row, name) in zip(confusion_matrix, self.base.gesture_name):
-        #    print(row, end='')
-        #    print(name)
         return percentage

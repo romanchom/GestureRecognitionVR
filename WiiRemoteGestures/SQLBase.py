@@ -107,6 +107,7 @@ class SQLBase:
         sets = []
 
         for tester in self.testers:
+            print(tester)
             train_set = []
             test_set = []
             for gesture in self.gesture_list:

@@ -2,6 +2,7 @@ import io
 
 from SQLBase import SQLBase
 from Supervisor import Supervisor
+from Analyzer import Analyzer
 
 class MyApp:
     def __init__(self, **kwargs):
@@ -37,6 +38,8 @@ class MyApp:
             
 
     def do_user_dependent_science(self):
+        analyzer = Analyzer(self.base.gesture_name)
+
         with open('user dependent.txt', 'w', 1) as f:
             for sets in self.base.get_user_dependent_sets():
                 train_set, test_set, tester = sets
@@ -44,7 +47,10 @@ class MyApp:
                 print('Train set: {}, Test set: {}'.format(len(train_set), len(test_set)))
                 self.supervisor.recognizer.reset()
                 self.supervisor.train_nn(train_set)
-                self.supervisor.test_nn(test_set)
+                self.supervisor.test_nn(test_set, analyzer)
+
+        analyzer.matrix.save_csv('matrix.csv')
+        analyzer.histogram.save_csv('histogram.csv')
 
 
 if __name__ == '__main__':

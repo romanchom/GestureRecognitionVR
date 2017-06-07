@@ -26,9 +26,12 @@ class Recognizer:
             
         # recurent cells
         cells = [
-            tf.contrib.rnn.GRUCell(num_mem_cells),
             tf.contrib.rnn.LSTMCell(num_mem_cells),
-            #tf.contrib.rnn.LSTMCell(num_mem_cells),
+            tf.contrib.rnn.LSTMCell(num_mem_cells),
+            tf.contrib.rnn.LSTMCell(num_mem_cells),
+            tf.contrib.rnn.LSTMCell(num_mem_cells),
+            #tf.contrib.rnn.GRUCell(num_mem_cells),
+            #tf.contrib.rnn.GRUCell(num_mem_cells),
         ]
         cell = tf.contrib.rnn.MultiRNNCell(cells, state_is_tuple=True)
         
@@ -40,7 +43,6 @@ class Recognizer:
                 self.labels = tf.placeholder(tf.int32, [batch_size], name="labels")
                 self.lengths = tf.placeholder(tf.int32, [batch_size], name="lengths")
                 self.keep_prob = tf.placeholder(tf.float32, (), name='keep_prob')
-                self.noise = tf.placeholder(tf.float32, ())
             
             batch_size = tf.shape(self.examples)[0]
 
@@ -49,7 +51,7 @@ class Recognizer:
                 conv = tf.nn.conv2d(conv_input, self.conv_filter, [1, 1, 1, 1], 'VALID', True)
                 conv = tf.nn.bias_add(conv, self.conv_biases)
                 conv = tf.nn.tanh(conv)
-                #conv = tf.nn.max_pool(conv, [1, 1, conv_width, 1], [1, 1, 1, 1], 'SAME')
+                conv = tf.nn.max_pool(conv, [1, 1, conv_width, 1], [1, 1, 1, 1], 'SAME')
                 conv = tf.nn.dropout(conv, self.keep_prob)
                 
 
@@ -72,7 +74,7 @@ class Recognizer:
                 flat = tf.reshape(self.cross_entropy, [-1])
                 self.cross_entropy = tf.gather(flat, index)
                 self.cross_entropy = tf.reduce_mean(self.cross_entropy, name='cross_entropy')"""
-                mask = tf.logical_xor(tf.sequence_mask(new_length,  new_max_length), tf.sequence_mask(new_length - 4,  new_max_length))
+                mask = tf.logical_xor(tf.sequence_mask(new_length,  new_max_length), tf.sequence_mask(new_length - 2,  new_max_length))
                 #mask = tf.sequence_mask(self.lengths,  new_max_length)
                 self.cross_entropy = tf.reduce_mean(tf.boolean_mask(self.cross_entropy, mask), name="cross_entropy")
                 
@@ -109,7 +111,6 @@ class Recognizer:
             self.labels : labels,
             self.lengths : lengths,
             self.keep_prob : 0.8,
-            self.noise : 0.02,
         }
         _, ret = self.sess.run([self.optimize, self.cross_entropy], feed)
         return ret
@@ -120,7 +121,6 @@ class Recognizer:
             self.labels : labels,
             self.lengths : lengths,
             self.keep_prob : 1.0,
-            self.noise : 0.0,
         }
         return self.sess.run([self.cross_entropy, self.correct_percentage, self.prediction, self.total_predictions], feed)
 
