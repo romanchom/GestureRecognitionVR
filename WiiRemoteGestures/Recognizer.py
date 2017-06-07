@@ -10,11 +10,11 @@ class Recognizer:
     def __init__(self, feature_count, class_count, max_length):
         self.step = 0
         batch_size = None
-        num_mem_cells = 128
+        num_mem_cells = 64
         conv_width = 4
         conv_height = 1
         conv_in_channels = feature_count
-        conv_out_channels = 128
+        conv_out_channels = 256
         beta = 0.00005
         # MODEL VARIABLES   
         with tf.variable_scope('variables'):     
@@ -29,7 +29,7 @@ class Recognizer:
             tf.contrib.rnn.LSTMCell(num_mem_cells),
             tf.contrib.rnn.LSTMCell(num_mem_cells),
             tf.contrib.rnn.LSTMCell(num_mem_cells),
-            tf.contrib.rnn.LSTMCell(num_mem_cells),
+            #tf.contrib.rnn.LSTMCell(num_mem_cells),
             #tf.contrib.rnn.GRUCell(num_mem_cells),
             #tf.contrib.rnn.GRUCell(num_mem_cells),
         ]
@@ -50,7 +50,7 @@ class Recognizer:
                 conv_input = tf.reshape(self.examples, (-1, 1, max_length, conv_in_channels))
                 conv = tf.nn.conv2d(conv_input, self.conv_filter, [1, 1, 1, 1], 'VALID', True)
                 conv = tf.nn.bias_add(conv, self.conv_biases)
-                conv = tf.nn.tanh(conv)
+                conv = tf.nn.sigmoid(conv)
                 conv = tf.nn.max_pool(conv, [1, 1, conv_width, 1], [1, 1, 1, 1], 'SAME')
                 conv = tf.nn.dropout(conv, self.keep_prob)
                 
