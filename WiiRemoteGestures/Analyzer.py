@@ -2,7 +2,7 @@ import numpy as np
 import io
 from ConfusionMatrix import ConfusionMatrix
 from ConfidenceHistogram import ConfidenceHistogram
-
+import os
 
 class Analyzer:
     def __init__(self, classes):
@@ -22,9 +22,10 @@ class Analyzer:
         self.histogram.accumulate(predictions, labels)
 
     def save(self, prefix):
-        self.matrix.save_csv(prefix + '_confusion.csv')
-        self.histogram.save_csv(prefix + '_confidence.csv')
-        with open(prefix + '_summary.txt', 'w') as file:
+        path = os.path.join('results', prefix)
+        self.matrix.save_csv(path + '_confusion.csv')
+        self.histogram.save_csv(path + '_confidence.csv')
+        with open(path + '_summary.txt', 'w') as file:
             file.write('Total predictions: {}\n'.format(self.total_predictions))
             file.write('Correct predictions: {}\n'.format(self.correct_predictions))
             file.write('Correct precentage: {}\n'.format(self.correct_predictions / self.total_predictions))

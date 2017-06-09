@@ -79,7 +79,7 @@ class Recognizer:
                 self.cross_entropy = tf.reduce_mean(tf.boolean_mask(self.cross_entropy, mask), name="cross_entropy")
                 
                 
-                optimizer = tf.train.AdamOptimizer(0.001)
+                optimizer = tf.train.AdamOptimizer(0.0005)
                 self.optimize = optimizer.minimize(self.cross_entropy, name="optimize")
         
                 # EXAMINATION OPERATION
@@ -110,7 +110,7 @@ class Recognizer:
             self.examples : examples,
             self.labels : labels,
             self.lengths : lengths,
-            self.keep_prob : 0.8,
+            self.keep_prob : 0.7,
         }
         _, ret = self.sess.run([self.optimize, self.cross_entropy], feed)
         return ret

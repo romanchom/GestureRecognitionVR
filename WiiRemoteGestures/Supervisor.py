@@ -3,14 +3,14 @@ import math
 import numpy as np
 
 from Recognizer import Recognizer
-from Example import Example
+from Gesture import Gesture
 from DataAugumenter import augument
 
 class Supervisor:
     def __init__(self, feature_count, class_count, max_length):
         self.no_improvement_limit = 20
         self.batch_size = 100
-        self.min_cross_entropy = 0.05
+        self.min_cross_entropy = 0.1
         self.class_count = class_count
 
         self.recognizer = Recognizer(feature_count, class_count, max_length)
@@ -26,7 +26,7 @@ class Supervisor:
         if batch_count > 1:
             batch_size = len(train_set) // batch_count + 1
         else:
-            train_examples, train_labels, train_lengths = Example.to_numpy(train_set)
+            train_examples, train_labels, train_lengths = Gesture.to_numpy(train_set)
             
         augumenter = None
 
@@ -36,7 +36,7 @@ class Supervisor:
             if batch_count > 1:
                 random.shuffle(train_set)
                 for i in range(0, len(train_set), batch_size):
-                    train_examples, train_labels, train_lengths = Example.to_numpy(train_set[i:i+batch_size])
+                    train_examples, train_labels, train_lengths = Gesture.to_numpy(train_set[i:i+batch_size])
                     cross_entropy += self.recognizer.train(train_examples, train_labels, train_lengths)
                 cross_entropy /= batch_count
             else:
@@ -66,7 +66,7 @@ class Supervisor:
         batch_size = data_point_count // batch_count + 1
 
         for i in range(0, data_point_count, batch_size):
-            test_examples, test_labels, test_lengths = Example.to_numpy(test_set[i:i+batch_size])
+            test_examples, test_labels, test_lengths = Gesture.to_numpy(test_set[i:i+batch_size])
             c, p, predictions, total_predictions = self.recognizer.test(test_examples, test_labels, test_lengths)
             count = len(test_examples)
             cross_entropy += c * count
