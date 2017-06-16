@@ -1,80 +1,88 @@
 import io
 
 from ViveBase import ViveBase
+from WiiBase import WiiBase
 from Supervisor import Supervisor
 from Analyzer import Analyzer
+from Recognizer import Recognizer
 
 class MyApp:
     def __init__(self, **kwargs):
-        self.base = ViveBase()
-        self.base.load('vive.db')
-        self.supervisor = Supervisor(self.base.feature_count, self.base.class_count, self.base.max_length)
+        self.supervisor = Supervisor()
+        self.supervisor.recognizer = Recognizer()
 
-    def do_user_independent_science(self):
-        analyzer = Analyzer(self.base.classes)
+    def run_experiments(self):
+        wii_name = 'MotionGesture.db'
+        vive_name = 'vive.db'
+        scenarios = [
+            (WiiBase(wii_name, WiiBase.feature_set_position), 'wii_P'),
+            (WiiBase(wii_name, WiiBase.feature_set_position_orientation), 'wii_PO'),
+            (WiiBase(wii_name, WiiBase.feature_set_acceleration), 'wii_A'),
+            (WiiBase(wii_name, WiiBase.feature_set_acceleration_angular_velocity), 'wii_AW'),
+            (WiiBase(wii_name, WiiBase.feature_set_full), 'wii_POAW'),
+            (ViveBase(vive_name, ViveBase.feature_set_position), 'vive_P'),
+            (ViveBase(vive_name, ViveBase.feature_set_position_orientation), 'vive_PO'),
+            (ViveBase(vive_name, ViveBase.feature_set_velocity), 'vive_V'),
+            (ViveBase(vive_name, ViveBase.feature_set_velocity_angular_velocity), 'vive_VW'),
+            (ViveBase(vive_name, ViveBase.feature_set_full), 'vive_POVW'),
+        ]
 
-        repeats = 1
-        with open('user independent.txt', 'w', 1) as f:
-            for i in range(repeats):
-                train_set, test_set = self.base.get_user_independent_sets()
-                self.supervisor.recognizer.reset()
-                self.supervisor.train_nn(train_set)
-                percentage = self.supervisor.test_nn(test_set, analyzer)
-                f.write(str(percentage) + '\n')
+        for (base, name) in scenarios:
+            self.supervisor.recognizer.initialize(base.feature_count, base.class_count, base.max_length)
+            self.run_user_dependent(name, base)
+            self.run_user_independent(name, base)
+            #self.run_cross_validate_user_independent(name)
 
-        analyzer.save('ui')                
 
-    def cross_validate_user_independent(self):
-        analyzer = Analyzer(self.base.classes)
+    def run_user_independent(self, name, base):
+        analyzer = Analyzer(base.classes)
+
+        sets = base.get_user_independent_sets(6)
+        for train_set, test_set in sets:
+            self.supervisor.recognizer.reset()
+            self.supervisor.train_nn(train_set)
+            self.supervisor.test_nn(test_set, analyzer)
+
+        analyzer.save(name + '/user_independent')                
+
+    def run_cross_validate_user_independent(self, name, base):
+        analyzer = Analyzer(base.classes)
 
         mean_percentage = 0 
-        all_sets = self.base.get_cross_validation_sets()
-        with open('user independent cv.txt', 'w', 1) as f:
-            for i in range(3):
-                for sets in all_sets:
-                    train_set, test_set = sets
-                    self.supervisor.recognizer.reset()
-                    self.supervisor.train_nn(train_set)
-                    percentage = self.supervisor.test_nn(test_set, analyzer)
-                    mean_percentage += percentage
-                    f.write("{}\n".format(percentage))
+        all_sets = base.get_cross_validation_sets()
+        for i in range(3):
+            for sets in all_sets:
+                train_set, test_set = sets
+                self.supervisor.recognizer.reset()
+                self.supervisor.train_nn(train_set)
+                self.supervisor.test_nn(test_set, analyzer)
 
-                mean_percentage /= len(all_sets)
-                msg = "mean {}\n".format(mean_percentage)
-                f.write(msg)
-                print(msg)
+        analyzer.save(name + '/user_independend_cross')
 
-        analyzer.save('uic')
+    def run_user_dependent(self, name, base):
+        analyzer = Analyzer(base.classes)
 
-    def do_user_dependent_science(self):
-        analyzer = Analyzer(self.base.classes)
+        for i in range(3):
+            for sets in base.get_user_dependent_sets():
+                train_set, test_set, tester = sets
+                print('Training with user {}'.format(tester))
+                print('Train set: {}, Test set: {}'.format(len(train_set), len(test_set)))
+                self.supervisor.recognizer.reset()
+                self.supervisor.train_nn(train_set)
+                self.supervisor.test_nn(test_set, analyzer)
 
-        with open('user dependent.txt', 'w', 1) as f:
-            for i in range(3):
-                for sets in self.base.get_user_dependent_sets():
-                    train_set, test_set, tester = sets
-                    print('Training with user {}'.format(tester))
-                    print('Train set: {}, Test set: {}'.format(len(train_set), len(test_set)))
-                    self.supervisor.recognizer.reset()
-                    self.supervisor.train_nn(train_set)
-                    self.supervisor.test_nn(test_set, analyzer)
+        analyzer.save(name + '/user_dependent')
 
-        analyzer.save('ud')
+    def run_off_hand(self, name, base):
+        analyzer = Analyzer(base.classes)
 
-    def do_off_hand_science(self):
-        analyzer = Analyzer(self.base.classes)
-
-        train_set, test_set = self.base.get_other_hand_sets()
+        train_set, test_set = base.get_other_hand_sets()
         self.supervisor.recognizer.reset()
         self.supervisor.train_nn(train_set)
-        percentage = self.supervisor.test_nn(test_set, analyzer)
-        f.write(str(percentage) + '\n')
+        self.supervisor.test_nn(test_set, analyzer)
 
+        analyzer.save(name + '/off_hand')
 
 if __name__ == '__main__':
     app = MyApp()
-    app.should_load = False
-    app.should_save = True
-    #app.cross_validate_user_independent()
-    #app.do_user_dependent_science()
-    app.do_off_hand_science()
+    app.run_experiments()

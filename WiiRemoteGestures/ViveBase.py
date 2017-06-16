@@ -7,7 +7,8 @@ from Gesture import Gesture
 
 
 class ViveBase(SQLBase):
-    def load(self, file):
+    def __init__(self, file, feature_set_extractor = None):
+        super(ViveBase, self).__init__()
         db = sqlite3.connect(file)
         c = db.cursor()
 
@@ -25,17 +26,18 @@ class ViveBase(SQLBase):
                 self.gesture_name.append(name)
                 self.gesture_id[name] = identifier
 
-        row_size = 55
-
         for g in raw_list:
             data = np.frombuffer(g[5], dtype='float32')
-            data = np.reshape(data, [-1, row_size])
+            data = np.reshape(data, [-1, 55])
             
             if g[4] == 0: # gesture hand is left
                 data = data[:, 19:37]
             else:
                 data = data[:, 37:55]
 
+            if feature_set_extractor:
+                data = np.apply_along_axis(feature_set_extractor, 1, data)
+            
             self.max_length = max(self.max_length, data.shape[0])
 
             gesture = Gesture(
@@ -52,3 +54,17 @@ class ViveBase(SQLBase):
 
         for g in self.gesture_list:
             g.pad(self.max_length)
+
+    def feature_set_position(row):
+        return row[[3, 7, 11]]
+
+    def feature_set_position_orientation(row):
+        return row[0:12]
+
+    def feature_set_velocity(row):
+        return row[12:15]
+
+    def feature_set_velocity_angular_velocity(row):
+        return row[12:18]
+
+    feature_set_full = None

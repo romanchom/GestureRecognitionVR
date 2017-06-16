@@ -4,16 +4,14 @@ import numpy as np
 
 from Recognizer import Recognizer
 from Gesture import Gesture
-from DataAugumenter import augument
 
 class Supervisor:
-    def __init__(self, feature_count, class_count, max_length):
+    def __init__(self):
         self.no_improvement_limit = 20
-        self.batch_size = 100
+        self.batch_size = 400
         self.min_cross_entropy = 0.1
-        self.class_count = class_count
 
-        self.recognizer = Recognizer(feature_count, class_count, max_length)
+        self.recognizer = Recognizer()
         
         random.seed()
 
@@ -27,8 +25,6 @@ class Supervisor:
             batch_size = len(train_set) // batch_count + 1
         else:
             train_examples, train_labels, train_lengths = Gesture.to_numpy(train_set)
-            
-        augumenter = None
 
         while True:
             # train on given set
@@ -52,7 +48,7 @@ class Supervisor:
                 print('.', end='', flush=True)
 
             # test if training should end
-            if epochs_without_improvement >= self.no_improvement_limit or cross_entropy < self.min_cross_entropy:
+            if cross_entropy < 0.2 and (epochs_without_improvement >= self.no_improvement_limit or cross_entropy < self.min_cross_entropy):
                 print("Long time without improvement, ending training")
                 break
 

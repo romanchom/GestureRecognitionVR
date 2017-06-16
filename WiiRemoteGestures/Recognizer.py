@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import gc
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
@@ -7,7 +8,14 @@ tf.logging.set_verbosity(tf.logging.ERROR)
 
 
 class Recognizer:
-    def __init__(self, feature_count, class_count, max_length):
+    def __init__(self):
+        self.sess = tf.Session()
+
+    def initialize(self, feature_count, class_count, max_length):
+        tf.reset_default_graph()
+        self.sess.close()
+        gc.collect()
+
         self.step = 0
         batch_size = None
         num_mem_cells = 64
@@ -15,7 +23,6 @@ class Recognizer:
         conv_height = 1
         conv_in_channels = feature_count
         conv_out_channels = 256
-        beta = 0.00005
         # MODEL VARIABLES   
         with tf.variable_scope('variables'):     
             # projection matrix
@@ -79,7 +86,7 @@ class Recognizer:
                 self.cross_entropy = tf.reduce_mean(tf.boolean_mask(self.cross_entropy, mask), name="cross_entropy")
                 
                 
-                optimizer = tf.train.AdamOptimizer(0.0005)
+                optimizer = tf.train.AdamOptimizer(0.005)
                 self.optimize = optimizer.minimize(self.cross_entropy, name="optimize")
         
                 # EXAMINATION OPERATION

@@ -21,11 +21,11 @@ class Analyzer:
         self.matrix.accumulate(labels, predicted_indices)
         self.histogram.accumulate(predictions, labels)
 
-    def save(self, prefix):
-        path = os.path.join('results', prefix)
-        self.matrix.save_csv(path + '_confusion.csv')
-        self.histogram.save_csv(path + '_confidence.csv')
-        with open(path + '_summary.txt', 'w') as file:
+    def save(self, path):
+        os.makedirs(path, exist_ok=True)
+        self.matrix.save_csv(os.path.join(path, 'confusion.csv'))
+        self.histogram.save_csv(os.path.join(path, 'confidence.csv'))
+        with open(os.path.join(path, 'summary.txt'), 'w') as file:
             file.write('Total predictions: {}\n'.format(self.total_predictions))
             file.write('Correct predictions: {}\n'.format(self.correct_predictions))
             file.write('Correct precentage: {}\n'.format(self.correct_predictions / self.total_predictions))

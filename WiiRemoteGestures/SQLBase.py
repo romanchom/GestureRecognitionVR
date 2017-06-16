@@ -15,7 +15,7 @@ class SQLBase:
         self.gesture_list = []
         self.testers = set()
         self.users = {}
-        self.class_count = 1
+        self.class_count = len(self.classes)
         self.max_length = 0
         self.feature_count = 0
 
@@ -48,29 +48,34 @@ class SQLBase:
             sets.append((train_set, test_set, tester))
         return sets
 
-    def get_user_independent_sets(self):
+    def get_user_independent_sets(self, count):
         '''Returns two disjoints sets:
             one containing all gestures of random 5 righthanded testers,
             the other all the other gstures'''
-        all_users = list(self.users.items())
-        random.shuffle(all_users)
-        users = set()
-        count = 5
-        for user in all_users:
-            if user[1] == 'right':
-                users.add(user[0])
-                count -= 1
-            
-            if count == 0: break
+        if len(self.users) < 10:
+            return self.get_cross_validation_sets()
 
-        train_set = []
-        test_set = []
-        for g in self.gesture_list:
-            if g.user_hand == 'right':
-                (train_set if g.tester in users else test_set).append(g)
+        sets = []
+        for i in range(count):
+            all_users = list(self.users.items())
+            random.shuffle(all_users)
+            users = set()
+            count = 5
+            for user in all_users:
+                if user[1] == 'right' or len(self.users) < 10:
+                    users.add(user[0])
+                    count -= 1
+                
+                if count == 0: break
 
-        print("Train set: {}, Test set: {}".format(len(train_set), len(test_set)))
-        return train_set, test_set
+            train_set = []
+            test_set = []
+            for g in self.gesture_list:
+                if g.user_hand == 'right':
+                    (train_set if g.tester in users else test_set).append(g)
+
+            sets.append((train_set, test_set))
+        return sets
 
     def get_other_hand_sets(self):
         """
