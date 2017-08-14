@@ -30,7 +30,8 @@ class WiiBase(SQLBase):
             data = np.reshape(data, [-1, 14])
 
             if feature_set_extractor:
-                data = np.apply_along_axis(feature_set_extractor, 1, data)
+                #data = np.apply_along_axis(feature_set_extractor, 1, data)
+                data = feature_set_extractor(data)
 
             self.max_length = max(self.max_length, data.shape[0])
             gesture = Gesture(
@@ -55,16 +56,51 @@ class WiiBase(SQLBase):
         # [8:11] acceleration in local (controller) space
         # [11:14] angular speed (yaw, pitch, roll)
 
-    def feature_set_position(row):
-        return row[1:4]
+    def feature_set_P(data):
+        return np.apply_along_axis(lambda row: row[1:4], 1, data)
 
-    def feature_set_position_orientation(row):
-        return row[1:8]
+    def feature_set_V(data):
+        shape = data.shape
+        shape[1] = 3
+        vel = np.zeros(shape, dtype='float32')
+        count = shape[0]
+        for i in range(1, count):
+            vel[i] = (data[i, 1:4] - data[i - 1, 1:4])
 
-    def feature_set_acceleration(row):
-        return row[8:11]
+        return vel
 
-    def feature_set_acceleration_angular_velocity(row):
-        return row[8:14]
+    def feature_set_PV(data):
+        pos = WiiBase.feature_set_P(data)
+        vel = WiiBase.feature_set_V(data)
+        return np.concatenate((pos, vel), 1)
 
-    feature_set_full = None
+    def feature_set_PO(data):
+        return np.apply_along_axis(lambda row: row[1:8], 1, data)
+
+    def feature_set_A(data):
+        return np.apply_along_axis(lambda row: row[8:11], 1, data)
+
+    def feature_set_AW(data):
+        return np.apply_along_axis(lambda row: row[8:14], 1, data)
+    
+    def feature_set_AWO(data):
+        return np.apply_along_axis(lambda row: row[4:14], 1, data)
+
+    def feature_set_PVO(data):
+        po = WiiBase.feature_set_PO(data)
+        vel = WiiBase.feature_set_V(data)
+        return np.concatenate((po, vel), 1)
+
+    def feature_set_PVOW(data):
+        po = WiiBase.feature_set_PO(data)
+        w = np.apply_along_axis(lambda row: row[11:14], 1, data)
+        vel = WiiBase.feature_set_V(data)
+        return np.concatenate((po, w, vel), 1)
+
+    def feature_set_PVOWA(data):
+        poaw = WiiBase.feature_set_POAW(data)
+        vel = WiiBase.feature_set_V(data)
+        return np.concatenate((po, w, vel), 1)
+
+    def feature_set_POAW(data):
+        return np.apply_along_axis(lambda row: row[1:14], 1, data)

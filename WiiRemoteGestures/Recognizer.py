@@ -18,7 +18,7 @@ class Recognizer:
 
         self.step = 0
         batch_size = None
-        num_mem_cells = 64
+        num_mem_cells = 256
         conv_width = 4
         conv_height = 1
         conv_in_channels = feature_count
@@ -31,16 +31,6 @@ class Recognizer:
             self.conv_filter = tf.Variable(tf.truncated_normal([conv_height, conv_width, conv_in_channels, conv_out_channels], stddev=0.1))
             self.conv_biases = tf.Variable(tf.constant(0.1, shape=[conv_out_channels]))
             
-        # recurent cells
-        cells = [
-            tf.contrib.rnn.LSTMCell(num_mem_cells),
-            tf.contrib.rnn.LSTMCell(num_mem_cells),
-            tf.contrib.rnn.LSTMCell(num_mem_cells),
-            #tf.contrib.rnn.LSTMCell(num_mem_cells),
-            #tf.contrib.rnn.GRUCell(num_mem_cells),
-            #tf.contrib.rnn.GRUCell(num_mem_cells),
-        ]
-        cell = tf.contrib.rnn.MultiRNNCell(cells, state_is_tuple=True)
         
         # TRAINING GRAPH
         with tf.variable_scope('training'):
@@ -50,20 +40,42 @@ class Recognizer:
                 self.labels = tf.placeholder(tf.int32, [batch_size], name="labels")
                 self.lengths = tf.placeholder(tf.int32, [batch_size], name="lengths")
                 self.keep_prob = tf.placeholder(tf.float32, (), name='keep_prob')
-            
+
             batch_size = tf.shape(self.examples)[0]
+            
+            # recurent cells
 
             with tf.variable_scope('operations'):
                 conv_input = tf.reshape(self.examples, (-1, 1, max_length, conv_in_channels))
                 conv = tf.nn.conv2d(conv_input, self.conv_filter, [1, 1, 1, 1], 'VALID', True)
                 conv = tf.nn.bias_add(conv, self.conv_biases)
-                conv = tf.nn.sigmoid(conv)
+                conv = tf.nn.relu(conv)
                 conv = tf.nn.max_pool(conv, [1, 1, conv_width, 1], [1, 1, 1, 1], 'SAME')
-                conv = tf.nn.dropout(conv, self.keep_prob)
+                #conv = tf.nn.dropout(conv, self.keep_prob)
                 
 
                 new_max_length = max_length - conv_width + 1
                 new_length = self.lengths - conv_width + 1
+                
+                cells = [
+                    tf.contrib.rnn.DropoutWrapper(
+                        tf.contrib.rnn.LSTMCell(num_mem_cells),
+                        input_keep_prob = self.keep_prob,
+                        output_keep_prob = 1.0,
+                        variational_recurrent = True,
+                        input_size = conv_out_channels,
+                        dtype = tf.float32),
+                    tf.contrib.rnn.DropoutWrapper(
+                        tf.contrib.rnn.LSTMCell(num_mem_cells),
+                        input_keep_prob = self.keep_prob,
+                        output_keep_prob = 1.0,
+                        variational_recurrent = True,
+                        input_size = num_mem_cells,
+                        dtype = tf.float32),
+
+                ]
+                cell = tf.contrib.rnn.MultiRNNCell(cells, state_is_tuple=True)
+
                 cell_in = tf.reshape(conv, (-1, new_max_length, conv_out_channels))
                 # TRAINING AND VALIDATION OPERATIONS
                 cell_out, cell_state = tf.nn.dynamic_rnn(
@@ -86,7 +98,7 @@ class Recognizer:
                 self.cross_entropy = tf.reduce_mean(tf.boolean_mask(self.cross_entropy, mask), name="cross_entropy")
                 
                 
-                optimizer = tf.train.AdamOptimizer(0.005)
+                optimizer = tf.train.AdamOptimizer(0.001)
                 self.optimize = optimizer.minimize(self.cross_entropy, name="optimize")
         
                 # EXAMINATION OPERATION
@@ -117,10 +129,10 @@ class Recognizer:
             self.examples : examples,
             self.labels : labels,
             self.lengths : lengths,
-            self.keep_prob : 0.7,
+            self.keep_prob : 0.75,
         }
-        _, ret = self.sess.run([self.optimize, self.cross_entropy], feed)
-        return ret
+        _, ret, perc = self.sess.run([self.optimize, self.cross_entropy, self.correct_percentage], feed)
+        return ret, perc
 
     def test(self, examples, labels, lengths):
         feed = {
