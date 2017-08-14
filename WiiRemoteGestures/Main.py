@@ -36,7 +36,7 @@ class MyApp:
             self.run_user_independent(name, base)
             #self.run_cross_validate_user_independent(name)
 
-        def experiment_2(self):
+    def experiment_2(self):
         # effect of gesture complexity
         old_classes = [
             'SwipeR',

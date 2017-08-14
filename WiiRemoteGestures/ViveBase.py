@@ -33,7 +33,7 @@ class ViveBase(SQLBase):
         for g in raw_list:
             if g[0] not in self.gesture_id:
                 continue
-            
+
             data = np.frombuffer(g[5], dtype='float32')
             data = np.reshape(data, [-1, 55])
             
@@ -71,7 +71,13 @@ class ViveBase(SQLBase):
     def feature_set_V(row):
         return row[12:15]
 
+    def feature_set_PV(row):
+        return row[[3, 7, 11, 12, 13, 14]]
+
+    def feature_set_PVO(row):
+        return row[0:15]
+
     def feature_set_VW(row):
         return row[12:18]
 
-    feature_set_full = None
+    feature_set_PVOW = None

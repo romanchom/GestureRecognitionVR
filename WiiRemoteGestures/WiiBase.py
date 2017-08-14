@@ -60,7 +60,7 @@ class WiiBase(SQLBase):
         return np.apply_along_axis(lambda row: row[1:4], 1, data)
 
     def feature_set_V(data):
-        shape = data.shape
+        shape = list(data.shape)
         shape[1] = 3
         vel = np.zeros(shape, dtype='float32')
         count = shape[0]
@@ -100,7 +100,7 @@ class WiiBase(SQLBase):
     def feature_set_PVOWA(data):
         poaw = WiiBase.feature_set_POAW(data)
         vel = WiiBase.feature_set_V(data)
-        return np.concatenate((po, w, vel), 1)
+        return np.concatenate((poaw, vel), 1)
 
     def feature_set_POAW(data):
         return np.apply_along_axis(lambda row: row[1:14], 1, data)
