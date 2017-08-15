@@ -50,10 +50,8 @@ class Recognizer:
                 conv = tf.nn.conv2d(conv_input, self.conv_filter, [1, 1, 1, 1], 'VALID', True)
                 conv = tf.nn.bias_add(conv, self.conv_biases)
                 conv = tf.nn.relu(conv)
-                conv = tf.nn.max_pool(conv, [1, 1, conv_width, 1], [1, 1, 1, 1], 'SAME')
-                #conv = tf.nn.dropout(conv, self.keep_prob)
+                #conv = tf.nn.max_pool(conv, [1, 1, conv_width, 1], [1, 1, 1, 1], 'SAME')
                 
-
                 new_max_length = max_length - conv_width + 1
                 new_length = self.lengths - conv_width + 1
                 
@@ -80,36 +78,22 @@ class Recognizer:
                 # TRAINING AND VALIDATION OPERATIONS
                 cell_out, cell_state = tf.nn.dynamic_rnn(
                     cell, cell_in, dtype=tf.float32, sequence_length=new_length)
-                #cell_out = tf.nn.dropout(cell_out, self.keep_prob)
-            
-                flat = tf.reshape(cell_out, (-1, num_mem_cells))
-                prediction = tf.matmul(flat, self.weight) + self.bias
-                prediction = tf.reshape(prediction, (tf.shape(self.examples)[0], new_max_length, class_count), name="predictions")
                 
-                labels = tf.tile(tf.reshape(self.labels, [-1, 1]), [1, new_max_length]) #tf.slice(self.labels, [0, 0], [tf.shape(self.examples)[0], new_max_length])
-                self.cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=prediction, labels=labels, name="softmax_cross_entropy")
-                """
-                index = tf.range(0, batch_size) * max_length + (self.lengths - 1)
-                flat = tf.reshape(self.cross_entropy, [-1])
-                self.cross_entropy = tf.gather(flat, index)
-                self.cross_entropy = tf.reduce_mean(self.cross_entropy, name='cross_entropy')"""
-                mask = tf.logical_xor(tf.sequence_mask(new_length,  new_max_length), tf.sequence_mask(new_length - 2,  new_max_length))
-                #mask = tf.sequence_mask(self.lengths,  new_max_length)
-                self.cross_entropy = tf.reduce_mean(tf.boolean_mask(self.cross_entropy, mask), name="cross_entropy")
-                
+                sequence = tf.range(tf.shape(new_length)[0], dtype=tf.int32) #for each batch
+                indices = tf.stack([sequence, new_length - 1], 1, name="Last_from_each_row_indices") # take a slice at the index of length-1 (last)
+                last_output = tf.gather_nd(cell_out, indices)
+
+                self.prediction = tf.matmul(last_output, self.weight) + self.bias
+                                
+                # this op performs internally softmax
+                self.cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.prediction, labels=self.labels, name="softmax_cross_entropy")
+
+                self.cross_entropy = tf.reduce_mean(self.cross_entropy, name="cross_entropy")
                 
                 optimizer = tf.train.AdamOptimizer(0.001)
                 self.optimize = optimizer.minimize(self.cross_entropy, name="optimize")
         
                 # EXAMINATION OPERATION
-                indices = tf.expand_dims(new_length - 1, 1)
-                sequence = tf.expand_dims(tf.range(tf.shape(new_length)[0], dtype=tf.int32), 1)
-                indices = tf.concat([sequence, indices], 1, name="Last_from_each_row_indices")
-
-                self.total_predictions = tf.nn.softmax(prediction) 
-                self.prediction = tf.nn.softmax(tf.gather_nd(prediction, indices))
-                #mask = tf.logical_xor(tf.sequence_mask(new_length,  new_max_length), tf.sequence_mask(new_length - 2,  new_max_length))
-                #self.prediction = tf.reduce_sum(tf.nn.softmax(prediction) * tf.reshape(tf.to_float(mask), [-1, new_max_length, 1]), 1)
                 self.correct_percentage = tf.to_int32(tf.argmax(self.prediction, axis=1))
                 self.correct_percentage = tf.equal(self.correct_percentage, self.labels)
                 self.correct_percentage = tf.reduce_mean(tf.to_float(self.correct_percentage))
@@ -129,7 +113,7 @@ class Recognizer:
             self.examples : examples,
             self.labels : labels,
             self.lengths : lengths,
-            self.keep_prob : 0.75,
+            self.keep_prob : 0.25,
         }
         _, ret, perc = self.sess.run([self.optimize, self.cross_entropy, self.correct_percentage], feed)
         return ret, perc
@@ -141,7 +125,7 @@ class Recognizer:
             self.lengths : lengths,
             self.keep_prob : 1.0,
         }
-        return self.sess.run([self.cross_entropy, self.correct_percentage, self.prediction, self.total_predictions], feed)
+        return self.sess.run([self.cross_entropy, self.correct_percentage, self.prediction], feed)
 
     def save(self):
         save_dir = "./save/"

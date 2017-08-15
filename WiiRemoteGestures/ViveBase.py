@@ -71,6 +71,12 @@ class ViveBase(SQLBase):
     def feature_set_V(row):
         return row[12:15]
 
+    def feature_set_O(row):
+        return row[[0, 1, 2, 4, 5, 6, 8, 9, 10]]
+
+    def feature_set_W(row):
+        return row[15:18]
+
     def feature_set_PV(row):
         return row[[3, 7, 11, 12, 13, 14]]
 

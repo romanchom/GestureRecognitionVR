@@ -7,9 +7,9 @@ from Gesture import Gesture
 
 class Supervisor:
     def __init__(self):
-        self.no_improvement_limit = 20
+        self.no_improvement_limit = 30
         self.batch_size = 200
-        self.min_cross_entropy = 0.1
+        self.min_cross_entropy = 0.05
 
         self.recognizer = Recognizer()
         
@@ -65,7 +65,7 @@ class Supervisor:
 
         for i in range(0, data_point_count, batch_size):
             test_examples, test_labels, test_lengths = Gesture.to_numpy(test_set[i:i+batch_size])
-            c, p, predictions, total_predictions = self.recognizer.test(test_examples, test_labels, test_lengths)
+            c, p, predictions = self.recognizer.test(test_examples, test_labels, test_lengths)
             count = len(test_examples)
             cross_entropy += c * count
             percentage += p * count

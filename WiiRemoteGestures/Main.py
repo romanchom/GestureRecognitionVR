@@ -10,6 +10,41 @@ from Recognizer import Recognizer
 wii_name = 'MotionGesture.db'
 vive_name = 'vive.db'
 
+old_classes = [
+    'SwipeR',
+    'SwipeDR',
+    'SwipeD',
+    'SwipeDL',
+    'SwipeL',
+    'SwipeUL',
+    'SwipeU',
+    'SwipeUR',
+    'PokeR',
+    'PokeU',
+    'PokeL',
+    'PokeD',
+    'CircleHorizontalCCW',
+    'CircleHorizontalCW',
+    'CircleVerticalCCW',
+    'CircleVerticalCW',
+    'ShapeV',
+    'ShapeX',
+    'TwistL',
+    'TwistR'
+]
+new_classes = [
+    'Square',
+    'Teeth',
+    'Triangle',
+    'Infinity',
+    'At',
+    'Ampersand',
+    'Brace',
+    'Phi',
+    'Gamma',
+    'Heart'
+]
+
 class MyApp:
     def __init__(self, **kwargs):
         self.supervisor = Supervisor()
@@ -18,96 +53,67 @@ class MyApp:
     def experiment_1(self):
         # direct comparison to HMM
         scenarios = [
+            (WiiBase(wii_name, WiiBase.feature_set_P), '1/wii_P'),
+            (WiiBase(wii_name, WiiBase.feature_set_V), '1/wii_V'),
+            (WiiBase(wii_name, WiiBase.feature_set_A), '1/wii_A'),
+            (WiiBase(wii_name, WiiBase.feature_set_O), '1/wii_O'),
+            (WiiBase(wii_name, WiiBase.feature_set_W), '1/wii_W'),
+            (ViveBase(vive_name, ViveBase.feature_set_P, class_filter=old_classes), '1/vive_P'),
+            (ViveBase(vive_name, ViveBase.feature_set_V, class_filter=old_classes), '1/vive_V'),
+            (ViveBase(vive_name, ViveBase.feature_set_O, class_filter=old_classes), '1/vive_O'),
+            (ViveBase(vive_name, ViveBase.feature_set_W, class_filter=old_classes), '1/vive_W'),
             (WiiBase(wii_name, WiiBase.feature_set_PV), '1/wii_PV'),
             (WiiBase(wii_name, WiiBase.feature_set_AW), '1/wii_AW'),
             (WiiBase(wii_name, WiiBase.feature_set_AWO), '1/wii_AWO'),
             (WiiBase(wii_name, WiiBase.feature_set_PVO), '1/wii_PVO'),
             (WiiBase(wii_name, WiiBase.feature_set_PVOW), '1/wii_PVOW'),
             (WiiBase(wii_name, WiiBase.feature_set_PVOWA), '1/wii_PVOWA'),
-            (ViveBase(vive_name, ViveBase.feature_set_PV), 'vive_PV'),
-            (ViveBase(vive_name, ViveBase.feature_set_PVO), 'vive_PVO'),
-            (ViveBase(vive_name, ViveBase.feature_set_PVOW), 'vive_PVOW'),
+            (ViveBase(vive_name, ViveBase.feature_set_PV, class_filter=old_classes), '1/vive_PV'),
+            (ViveBase(vive_name, ViveBase.feature_set_PVO, class_filter=old_classes), '1/vive_PVO'),
+            (ViveBase(vive_name, ViveBase.feature_set_PVOW, class_filter=old_classes), '1/vive_PVOW'),
         ]
 
         for (base, name) in scenarios:
             self.supervisor.recognizer.initialize(base.feature_count, base.class_count, base.max_length)
             print('experiment 1 ' + name)
-            self.run_user_dependent(name, base)
             self.run_user_independent(name, base)
-            #self.run_cross_validate_user_independent(name)
+            self.run_user_dependent(name, base)
 
     def experiment_2(self):
         # effect of gesture complexity
-        old_classes = [
-            'SwipeR',
-            'SwipeDR',
-            'SwipeD',
-            'SwipeDL',
-            'SwipeL',
-            'SwipeUL',
-            'SwipeU',
-            'SwipeUR',
-            'PokeR',
-            'PokeU',
-            'PokeL',
-            'PokeD',
-            'CircleHorizontalCCW',
-            'CircleHorizontalCW',
-            'CircleVerticalCCW',
-            'CircleVerticalCW',
-            'ShapeV',
-            'ShapeX',
-            'TwistL',
-            'TwistR'
-        ]
-        new_classes = [
-            'Square',
-            'Teeth',
-            'Triangle',
-            'Infinity',
-            'At',
-            'Ampersand',
-            'Brace',
-            'Phi',
-            'Gamma',
-            'Heart'
-        ]
-
         scenarios = [
-            (ViveBase(vive_name, ViveBase.feature_set_PVOW, class_filter=old_classes), 'vive_PVOW'),
-            (ViveBase(vive_name, ViveBase.feature_set_PVOW, class_filter=new_classes), 'vive_PVOW'),
-            (ViveBase(vive_name, ViveBase.feature_set_PVOW, class_filter=None), 'vive_PVOW'),
+            (ViveBase(vive_name, ViveBase.feature_set_PVOW, class_filter=old_classes), '2/vive_old'),
+            (ViveBase(vive_name, ViveBase.feature_set_PVOW, class_filter=new_classes), '2/vive_new'),
+            (ViveBase(vive_name, ViveBase.feature_set_PVOW, class_filter=None), '2/vive_total'),
         ]
 
         for (base, name) in scenarios:
             self.supervisor.recognizer.initialize(base.feature_count, base.class_count, base.max_length)
             print('experiment 2 ' + name)
-            self.run_user_dependent(name, base)
             self.run_user_independent(name, base)
-            #self.run_cross_validate_user_independent(name)
+            self.run_user_dependent(name, base)
 
 
     def experiment_3(self):
         # determine effect of number of features
         scenarios = [
-            (WiiBase(wii_name, WiiBase.feature_set_P), 'wii_P'),
-            (WiiBase(wii_name, WiiBase.feature_set_PO), 'wii_PO'),
-            (WiiBase(wii_name, WiiBase.feature_set_A), 'wii_A'),
-            (WiiBase(wii_name, WiiBase.feature_set_AW), 'wii_AW'),
-            (WiiBase(wii_name, WiiBase.feature_set_POAW), 'wii_POAW'),
-            (ViveBase(vive_name, ViveBase.feature_set_POVW), 'vive_POVW'),
-            (ViveBase(vive_name, ViveBase.feature_set_V), 'vive_V'),
-            (ViveBase(vive_name, ViveBase.feature_set_VW), 'vive_VW'),
-            (ViveBase(vive_name, ViveBase.feature_set_P), 'vive_P'),
-            (ViveBase(vive_name, ViveBase.feature_set_PO), 'vive_PO'),
+            (WiiBase(wii_name, WiiBase.feature_set_P), '3/wii_P'),
+            (WiiBase(wii_name, WiiBase.feature_set_PO), '3/wii_PO'),
+            (WiiBase(wii_name, WiiBase.feature_set_A), '3/wii_A'),
+            (WiiBase(wii_name, WiiBase.feature_set_AW), '3/wii_AW'),
+            (WiiBase(wii_name, WiiBase.feature_set_POAW), '3/wii_POAW'),
+            (ViveBase(vive_name, ViveBase.feature_set_V), '3/vive_V'),
+            (ViveBase(vive_name, ViveBase.feature_set_VW), '3/vive_VW'),
+            (ViveBase(vive_name, ViveBase.feature_set_P), '3/vive_P'),
+            (ViveBase(vive_name, ViveBase.feature_set_PO), '3/vive_PO'),
+            (ViveBase(vive_name, ViveBase.feature_set_PVOW), '3/vive_PVOW'),
         ]
 
         for (base, name) in scenarios:
             self.supervisor.recognizer.initialize(base.feature_count, base.class_count, base.max_length)
             print('experiment 3 ' + name)
-            self.run_user_dependent(name, base)
             self.run_user_independent(name, base)
-            #self.run_cross_validate_user_independent(name)
+            self.run_user_dependent(name, base)
 
 
     def run_user_independent(self, name, base):

@@ -65,7 +65,7 @@ class WiiBase(SQLBase):
         vel = np.zeros(shape, dtype='float32')
         count = shape[0]
         for i in range(1, count):
-            vel[i] = (data[i, 1:4] - data[i - 1, 1:4])
+            vel[i] = (data[i, 1:4] - data[i - 1, 1:4]) * 60
 
         return vel
 
@@ -76,6 +76,12 @@ class WiiBase(SQLBase):
 
     def feature_set_PO(data):
         return np.apply_along_axis(lambda row: row[1:8], 1, data)
+
+    def feature_set_O(data):
+        return np.apply_along_axis(lambda row: row[4:8], 1, data)
+
+    def feature_set_W(data):
+        return np.apply_along_axis(lambda row: row[4:8], 1, data)
 
     def feature_set_A(data):
         return np.apply_along_axis(lambda row: row[8:11], 1, data)

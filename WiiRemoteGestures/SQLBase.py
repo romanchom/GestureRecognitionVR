@@ -52,7 +52,7 @@ class SQLBase:
         '''Returns two disjoints sets:
             one containing all gestures of random 5 righthanded testers,
             the other all the other gstures'''
-        if len(self.users) < 10:
+        if len(self.users) < count:
             return self.get_cross_validation_sets()
 
         sets = []
