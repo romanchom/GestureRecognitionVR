@@ -19,10 +19,6 @@ class SQLBase:
         self.max_length = 0
         self.feature_count = 0
 
-        
-    def load(self, file):
-        raise NotImplementedError()
-
     def get_large_sets(self):
         '''Returns two disjoint sets:
             each containing half of gestures of each type of each tester'''

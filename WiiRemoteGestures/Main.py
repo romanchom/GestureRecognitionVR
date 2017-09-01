@@ -76,8 +76,8 @@ class MyApp:
         for (base, name) in scenarios:
             self.supervisor.recognizer.initialize(base.feature_count, base.class_count, base.max_length)
             print('experiment 1 ' + name)
-            self.run_user_independent(name, base)
             self.run_user_dependent(name, base)
+            self.run_user_independent(name, base)
 
     def experiment_2(self):
         # effect of gesture complexity
@@ -90,8 +90,8 @@ class MyApp:
         for (base, name) in scenarios:
             self.supervisor.recognizer.initialize(base.feature_count, base.class_count, base.max_length)
             print('experiment 2 ' + name)
-            self.run_user_independent(name, base)
             self.run_user_dependent(name, base)
+            self.run_user_independent(name, base)
 
 
     def experiment_3(self):
@@ -112,8 +112,8 @@ class MyApp:
         for (base, name) in scenarios:
             self.supervisor.recognizer.initialize(base.feature_count, base.class_count, base.max_length)
             print('experiment 3 ' + name)
-            self.run_user_independent(name, base)
             self.run_user_dependent(name, base)
+            self.run_user_independent(name, base)
 
 
     def run_user_independent(self, name, base):
@@ -150,6 +150,7 @@ class MyApp:
             train_set, test_set, tester = sets
             print("UD {} / {}".format(i, len(all_sets)))
             i += 1
+            self.supervisor.recognizer.reset()
             self.supervisor.train_nn(train_set)
             self.supervisor.test_nn(test_set, analyzer)
 
@@ -166,6 +167,6 @@ class MyApp:
 
 if __name__ == '__main__':
     app = MyApp()
-    app.experiment_1()
+    #app.experiment_1()
     app.experiment_2()
-    app.experiment_3()
+    #app.experiment_3()

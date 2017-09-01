@@ -65,9 +65,6 @@ class ViveBase(SQLBase):
     def feature_set_P(row):
         return row[[3, 7, 11]]
 
-    def feature_set_PO(row):
-        return row[0:12]
-
     def feature_set_V(row):
         return row[12:15]
 
@@ -79,6 +76,9 @@ class ViveBase(SQLBase):
 
     def feature_set_PV(row):
         return row[[3, 7, 11, 12, 13, 14]]
+
+    def feature_set_PO(row):
+        return row[0:12]
 
     def feature_set_PVO(row):
         return row[0:15]

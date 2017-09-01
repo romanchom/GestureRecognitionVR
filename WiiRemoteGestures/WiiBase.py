@@ -110,3 +110,4 @@ class WiiBase(SQLBase):
 
     def feature_set_POAW(data):
         return np.apply_along_axis(lambda row: row[1:14], 1, data)
+    

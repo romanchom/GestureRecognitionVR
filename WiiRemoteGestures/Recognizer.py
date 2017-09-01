@@ -94,6 +94,7 @@ class Recognizer:
                 self.optimize = optimizer.minimize(self.cross_entropy, name="optimize")
         
                 # EXAMINATION OPERATION
+                self.prediction = tf.nn.softmax(self.prediction)
                 self.correct_percentage = tf.to_int32(tf.argmax(self.prediction, axis=1))
                 self.correct_percentage = tf.equal(self.correct_percentage, self.labels)
                 self.correct_percentage = tf.reduce_mean(tf.to_float(self.correct_percentage))

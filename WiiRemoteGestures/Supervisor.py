@@ -7,7 +7,7 @@ from Gesture import Gesture
 
 class Supervisor:
     def __init__(self):
-        self.no_improvement_limit = 30
+        self.no_improvement_limit = 40
         self.batch_size = 200
         self.min_cross_entropy = 0.05
 
